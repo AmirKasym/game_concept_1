@@ -2,6 +2,12 @@ using System;
 
 namespace TradeWinds
 {
+    [Serializable]
+    public struct ShipSnapshot
+    {
+        public double x, z, heading, speed, sail, rudder, distance, clock, wind;
+        public bool anchored;
+    }
     // Plain C# authoritative state. Input and rendering never own a second copy.
     public sealed class ShipSimulation
     {
@@ -27,6 +33,22 @@ namespace TradeWinds
         }
 
         public void ToggleAnchor() { Anchored = !Anchored; }
+
+        public ShipSnapshot Capture()
+        {
+            return new ShipSnapshot { x = X, z = Z, heading = Heading, speed = Speed, sail = Sail,
+                rudder = Rudder, distance = Distance, clock = Clock, wind = WindEfficiency, anchored = Anchored };
+        }
+
+        public void Restore(ShipSnapshot state)
+        {
+            if (!Finite(state.x) || !Finite(state.z) || !Finite(state.heading) || !Finite(state.speed)
+                || !Finite(state.sail) || !Finite(state.rudder) || !Finite(state.distance)
+                || !Finite(state.clock) || !Finite(state.wind)) throw new ArgumentException("Invalid snapshot");
+            X = state.x; Z = state.z; Heading = state.heading; Speed = state.speed; Sail = state.sail;
+            Rudder = state.rudder; Distance = state.distance; Clock = state.clock;
+            WindEfficiency = state.wind; Anchored = state.anchored;
+        }
 
         public void Step(double dt, double steering, double sailChange)
         {

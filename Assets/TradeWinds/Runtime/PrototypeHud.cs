@@ -48,13 +48,13 @@ namespace TradeWinds
             GUI.matrix = Matrix4x4.TRS(new Vector3((Screen.width - 1280 * scale) / 2, (Screen.height - 720 * scale) / 2, 0), Quaternion.identity, Vector3.one * scale);
 
             Panel(new Rect(28, 28, 320, 86));
-            GUI.Label(new Rect(48, 40, 290, 18), "ПЕРВЫЙ РЕЙС   /   ПРОТОТИП 01", muted);
+            GUI.Label(new Rect(48, 40, 290, 18), "ПЕРВЫЙ РЕЙС   /   ПРОТОТИП 02", muted);
             GUI.Label(new Rect(48, 62, 285, 42), "ПОПУТНЫЙ ВЕТЕР", title);
             Panel(new Rect(520, 28, 240, 76));
             GUI.Label(new Rect(541, 41, 70, 22), "КУРС", muted);
             GUI.Label(new Rect(626, 38, 115, 42), heading, number);
             Panel(new Rect(990, 28, 262, 76));
-            GUI.Label(new Rect(1010, 40, 230, 22), "«КУНИЦА»  •  1 МАТРОС", label);
+            GUI.Label(new Rect(1010, 40, 230, 22), "«КУНИЦА»  •  " + (player.Session.Active ? player.Session.CrewCount : 1) + " МАТРОС(А)", label);
             GUI.Label(new Rect(1010, 66, 230, 22), ship.State.Anchored ? "НА ЯКОРЕ" : "ПОД ПАРУСОМ", muted);
 
             Panel(new Rect(28, 140, 286, 176));
@@ -72,12 +72,13 @@ namespace TradeWinds
             Fill(new Rect(48, 660, 244 * (float)ship.State.Sail, 4), gold);
 
             Panel(new Rect(344, 602, 908, 90));
-            string prompt = player.AtHelm ? "W / S  Парус     A / D  Руль     ПРОБЕЛ  Якорь     E  Отпустить штурвал"
-                : player.NearHelm ? "E  Взяться за штурвал     WASD  Ходить     МЫШЬ  Смотреть" : "WASD  Ходить     SHIFT  Быстрее     МЫШЬ  Смотреть";
+            string prompt = player.AtHelm ? "W / S  Парус     A / D  Руль     B  Якорь     E  Отпустить штурвал"
+                : "WASD / СТРЕЛКИ  Ходить     ПРОБЕЛ  Прыгать     SHIFT  Бежать     F  Ящик";
             GUI.Label(new Rect(364, 614, 862, 25), prompt, label);
-            GUI.Label(new Rect(364, 649, 860, 25), "TAB  Вид снаружи     ESC  Пауза и настройки     R  Сначала", muted);
+            GUI.Label(new Rect(364, 649, 860, 25), "E  Штурвал рядом     TAB  Вид снаружи     ESC  Меню и кооп     R  Сначала (соло)", muted);
             if (!player.ExternalView && !player.Paused) GUI.Label(new Rect(634, 350, 20, 24), "+", label);
             GUI.Label(new Rect(354, 550, 880, 42), ship.Notice, label);
+            GUI.Label(new Rect(354, 510, 880, 36), player.Session.Status, muted);
             if (player.Paused) DrawPause();
             GUI.matrix = original;
         }
@@ -87,7 +88,7 @@ namespace TradeWinds
             Fill(new Rect(0, 0, 1280, 720), new Color(0.02f, 0.055f, 0.07f, 0.85f));
             Panel(new Rect(390, 100, 500, 520));
             GUI.Label(new Rect(426, 130, 440, 42), "ТИХАЯ ГАВАНЬ", title);
-            GUI.Label(new Rect(426, 179, 425, 40), "Пауза. Корабль и море остановлены.", muted);
+            GUI.Label(new Rect(426, 179, 425, 40), player.Session.Active ? "Меню открыто. Сетевая игра продолжается." : "Пауза. Нажмите кнопку ниже или ESC.", muted);
             GUI.Label(new Rect(426, 231, 420, 24), "Чувствительность мыши", label);
             player.Sensitivity = GUI.HorizontalSlider(new Rect(426, 267, 420, 20), player.Sensitivity, 0.04f, 0.3f);
             GUI.Label(new Rect(426, 300, 420, 24), "Качка камеры", label);
@@ -101,7 +102,8 @@ namespace TradeWinds
             if (GUI.Button(new Rect(426, 429, 420, 40), ship.SeaStrength < 1 ? "Море: спокойное" : "Море: сильная качка (тест)", button))
                 ship.SeaStrength = ship.SeaStrength < 1 ? 1.6f : 0.6f;
             if (GUI.Button(new Rect(426, 495, 420, 50), "ВЕРНУТЬСЯ НА ПАЛУБУ", button)) player.SetPaused(false);
-            GUI.Label(new Rect(426, 568, 430, 24), "Одиночная сцена • торговля и кооп — следующие этапы", muted);
+            GUI.Label(new Rect(426, 568, 430, 24), "Пробел — прыжок • B — якорь у штурвала", muted);
+            player.Session.DrawLobbyGUI();
         }
 
         private void CreateStyles()
