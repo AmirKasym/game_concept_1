@@ -10,8 +10,8 @@ namespace TradeWinds
     [Serializable]
     public struct CrewInput
     {
-        public float horizontal, forward, yaw;
-        public bool sprint, jump, helm, anchor, cargo;
+        public float horizontal, forward, yaw, pitch;
+        public bool sprint, jump, helm, anchor, cargo, throwItem;
     }
 
     [Serializable]
@@ -20,7 +20,7 @@ namespace TradeWinds
         public ulong id;
         public Vector3 position;
         public float yaw;
-        public bool atHelm;
+        public bool atHelm, aboard, climbing, grounded;
     }
 
     [Serializable]
@@ -30,6 +30,7 @@ namespace TradeWinds
         public CrewPose[] crew;
         public Vector3 cargo;
         public long carrier = -1;
+        public CargoPose[] items;
     }
 
     // Small LAN prototype: NGO supplies connections and reliable delivery; only the
@@ -41,10 +42,9 @@ namespace TradeWinds
         private const float SendInterval = 0.05f;
         private sealed class Sailor
         {
-            public readonly DeckMotor motor = new DeckMotor();
+            public ShipActor actor;
             public CrewInput input;
             public float lastInput;
-            public bool atHelm;
         }
         private readonly Dictionary<ulong, Sailor> sailors = new Dictionary<ulong, Sailor>();
         private readonly Dictionary<ulong, SailorAvatar> avatars = new Dictionary<ulong, SailorAvatar>();
@@ -55,7 +55,7 @@ namespace TradeWinds
         private UnityTransport transport;
         private ShipController ship;
         private DeckPlayer player;
-        private Transform crate;
+        private PickableItem[] items;
         private Material crewMaterial;
         private CrewInput pending;
         private float nextSend;
@@ -67,13 +67,13 @@ namespace TradeWinds
         public bool Active { get { return connecting || (network != null && network.IsListening); } }
         public bool IsHost { get { return network != null && network.IsHost; } }
         public int CrewCount { get { return IsHost ? sailors.Count : avatars.Count; } }
-        public string Status { get; private set; } = "F — поднять ящик рядом. ESC — меню кооператива.";
+        public string Status { get; private set; } = "E — предмет / лестница / штурвал. ЛКМ — бросить. Зелёная зона — трюм.";
         public VoyageSnapshot LastSnapshot { get; private set; }
         public ulong LocalClientId { get { return network.LocalClientId; } }
 
-        public void Initialize(ShipController controller, DeckPlayer deckPlayer, Transform cargo, Material material)
+        public void Initialize(ShipController controller, DeckPlayer deckPlayer, PickableItem[] cargo, Material material)
         {
-            ship = controller; player = deckPlayer; crate = cargo; crewMaterial = material;
+            ship = controller; player = deckPlayer; items = cargo; crewMaterial = material;
             Application.runInBackground = true;
             player.Session = this;
             offlineAvatar = new GameObject("Матрос · одиночная игра").AddComponent<SailorAvatar>();
@@ -86,7 +86,7 @@ namespace TradeWinds
             network.NetworkConfig.NetworkTransport = transport;
             network.NetworkConfig.EnableSceneManagement = false;
             network.NetworkConfig.ConnectionApproval = true;
-            network.NetworkConfig.ProtocolVersion = 2;
+            network.NetworkConfig.ProtocolVersion = 3;
             network.NetworkConfig.TickRate = 20;
             network.ConnectionApprovalCallback = Approve;
             network.OnClientConnectedCallback += Connected;
@@ -98,7 +98,8 @@ namespace TradeWinds
             if (Active) return;
             transport.SetConnectionData("127.0.0.1", 7777, "0.0.0.0");
             PrepareSession();
-            if (!network.StartHost()) { Status = "Не удалось создать игру: порт 7777 занят?"; return; }
+            foreach (var item in items) item.SetReplica(false);
+            if (!network.StartHost()) { ReturnOffline(); Status = "Не удалось создать игру: порт 7777 занят?"; return; }
             RegisterMessages();
             Status = "Хост открыт • порт 7777 • до 4 игроков";
             player.SetPaused(false);
@@ -111,9 +112,10 @@ namespace TradeWinds
             if (string.IsNullOrWhiteSpace(address)) { Status = "Введите адрес хоста."; return; }
             transport.SetConnectionData(address.Trim(), 7777);
             PrepareSession();
+            foreach (var item in items) item.SetReplica(true);
             connecting = true;
             connectionDeadline = Time.unscaledTime + 12;
-            if (!network.StartClient()) { connecting = false; Status = "Не удалось подключиться."; return; }
+            if (!network.StartClient()) { connecting = false; ReturnOffline(); Status = "Не удалось подключиться."; return; }
             RegisterMessages();
             ship.Paused = true;
             Status = "Подключение к " + address + "…";
@@ -121,10 +123,12 @@ namespace TradeWinds
 
         private void PrepareSession()
         {
-            sailors.Clear(); pending = new CrewInput(); carrier = -1;
+            ClearSailors(); pending = new CrewInput(); carrier = -1; LastSnapshot = null;
+            player.SetNetworkMode(true);
             ship.ResetVoyage();
             ship.Paused = false;
             cargoPosition = new Vector3(1.7f, 2.6f, -1.8f);
+            ResetCargo();
             nextSend = 0;
         }
 
@@ -147,7 +151,8 @@ namespace TradeWinds
             if (IsHost)
             {
                 var sailor = new Sailor();
-                sailor.motor.Reset(id % 2 == 0 ? 1.5f : -1.5f, -5.7f + (sailors.Count / 2) * 1.1f);
+                sailor.actor = new GameObject("Authoritative sailor " + id).AddComponent<ShipActor>();
+                sailor.actor.Initialize(ship, id, new Vector3(id % 2 == 0 ? 1.5f : -1.5f, 2.2f, -5.7f + (sailors.Count / 2) * 1.1f));
                 sailors[id] = sailor;
             }
             if (id == network.LocalClientId)
@@ -160,6 +165,7 @@ namespace TradeWinds
 
         private void Disconnected(ulong id)
         {
+            if (sailors.TryGetValue(id, out Sailor sailor)) Destroy(sailor.actor.gameObject);
             sailors.Remove(id);
             if (carrier == (long)id) carrier = -1;
             if (!IsHost)
@@ -181,7 +187,9 @@ namespace TradeWinds
         private void ReturnOffline()
         {
             foreach (var avatar in avatars.Values) if (avatar != null) Destroy(avatar.gameObject);
-            avatars.Clear(); sailors.Clear(); carrier = -1; pending = new CrewInput();
+            avatars.Clear(); ClearSailors(); carrier = -1; pending = new CrewInput();
+            foreach (var item in items) item.SetReplica(false);
+            player.SetNetworkMode(false);
             player.ResetPlayerAndShip();
             player.SetPaused(true);
         }
@@ -189,9 +197,10 @@ namespace TradeWinds
         public void SetInput(CrewInput input)
         {
             pending.horizontal = input.horizontal; pending.forward = input.forward;
-            pending.yaw = input.yaw; pending.sprint = input.sprint;
+            pending.yaw = input.yaw; pending.pitch = input.pitch; pending.sprint = input.sprint;
             pending.jump |= input.jump; pending.helm |= input.helm;
             pending.anchor |= input.anchor; pending.cargo |= input.cargo;
+            pending.throwItem |= input.throwItem;
         }
 
         private void Update()
@@ -209,9 +218,16 @@ namespace TradeWinds
                 var poses = new CrewPose[sailors.Count];
                 int index = 0;
                 foreach (var pair in sailors)
-                    poses[index++] = new CrewPose { id = pair.Key, position = Position(pair.Value.motor),
-                        yaw = pair.Value.input.yaw, atHelm = pair.Value.atHelm };
-                var snapshot = new VoyageSnapshot { ship = ship.State.Capture(), crew = poses, cargo = cargoPosition, carrier = carrier };
+                {
+                    ShipActor actor = pair.Value.actor;
+                    bool aboard = actor.Platform != null;
+                    poses[index++] = new CrewPose { id = pair.Key, position = aboard ? ship.transform.InverseTransformPoint(actor.transform.position) : actor.transform.position,
+                        yaw = pair.Value.input.yaw, atHelm = actor.AtHelm, aboard = aboard, climbing = actor.Climbing, grounded = actor.Grounded };
+                }
+                var cargoPoses = new CargoPose[items.Length];
+                for (int i = 0; i < items.Length; i++) cargoPoses[i] = items[i].Capture();
+                var snapshot = new VoyageSnapshot { ship = ship.State.Capture(), crew = poses, cargo = items[0].transform.position,
+                    carrier = cargoPoses[0].carrier, items = cargoPoses };
                 Present(snapshot);
                 foreach (ulong id in network.ConnectedClientsIds)
                     if (id != network.LocalClientId) Send(StateMessage, id, snapshot);
@@ -230,39 +246,23 @@ namespace TradeWinds
             foreach (var pair in sailors)
             {
                 Sailor sailor = pair.Value;
-                CrewInput input = Time.unscaledTime - sailor.lastInput > 0.35f ? new CrewInput { yaw = sailor.input.yaw } : sailor.input;
-                if (input.helm && sailor.motor.Grounded)
-                {
-                    bool occupied = false;
-                    foreach (var other in sailors.Values) occupied |= other != sailor && other.atHelm;
-                    if (sailor.atHelm) sailor.atHelm = false;
-                    else if (!occupied && Vector3.Distance(Position(sailor.motor), DeckPlayer.HelmPosition) < 2.4f && carrier != (long)pair.Key)
-                    { sailor.atHelm = true; sailor.motor.Reset(0, -5.3f); }
-                }
-                if (input.jump) sailor.atHelm = false;
-                if (sailor.atHelm)
-                {
-                    ship.Steering = input.horizontal; ship.SailChange = input.forward;
-                    if (input.anchor) ship.ToggleAnchor();
-                }
-                else sailor.motor.Step(Time.fixedDeltaTime, input.horizontal, input.forward, input.yaw,
-                    input.sprint && carrier != (long)pair.Key, input.jump);
-                if (input.cargo && !sailor.atHelm) Interact(pair.Key, Position(sailor.motor));
+                CrewInput input = Time.unscaledTime - sailor.lastInput > 0.35f ? new CrewInput { yaw = sailor.input.yaw, pitch = sailor.input.pitch } : sailor.input;
+                sailor.actor.Step(input, Time.fixedDeltaTime);
                 ClearActions(ref sailor.input);
-                if (carrier == (long)pair.Key) cargoPosition = Position(sailor.motor) + Vector3.up * 0.9f
-                    + Quaternion.Euler(0, input.yaw, 0) * Vector3.forward * 0.85f;
             }
         }
 
         private void AcceptInput(ulong id, CrewInput input)
         {
             if (!sailors.TryGetValue(id, out Sailor sailor)) return;
-            if (!Finite(input.horizontal) || !Finite(input.forward) || !Finite(input.yaw)) return;
+            if (!Finite(input.horizontal) || !Finite(input.forward) || !Finite(input.yaw) || !Finite(input.pitch)) return;
             input.horizontal = Mathf.Clamp(input.horizontal, -1, 1);
             input.forward = Mathf.Clamp(input.forward, -1, 1);
             input.yaw = Mathf.Repeat(input.yaw, 360);
+            input.pitch = Mathf.Clamp(input.pitch, -65, 70);
             input.jump |= sailor.input.jump; input.helm |= sailor.input.helm;
             input.anchor |= sailor.input.anchor; input.cargo |= sailor.input.cargo;
+            input.throwItem |= sailor.input.throwItem;
             sailor.input = input; sailor.lastInput = Time.unscaledTime;
         }
 
@@ -280,7 +280,7 @@ namespace TradeWinds
             {
                 reader.ReadValueSafe(out string json);
                 var snapshot = JsonUtility.FromJson<VoyageSnapshot>(json);
-                if (snapshot == null || snapshot.crew == null || snapshot.crew.Length > 4) return;
+                if (snapshot == null || snapshot.crew == null || snapshot.crew.Length > 4 || snapshot.items == null || snapshot.items.Length != items.Length) return;
                 ship.State.Restore(snapshot.ship);
                 Present(snapshot);
             }
@@ -301,11 +301,13 @@ namespace TradeWinds
         {
             LastSnapshot = snapshot;
             cargoPosition = snapshot.cargo; carrier = snapshot.carrier;
+            if (!IsHost) foreach (CargoPose cargo in snapshot.items)
+                if (cargo.id >= 0 && cargo.id < items.Length) items[cargo.id].Apply(cargo);
             visibleIds.Clear();
             foreach (CrewPose pose in snapshot.crew)
             {
                 visibleIds.Add(pose.id);
-                if (pose.id == network.LocalClientId) player.ApplyNetworkPose(pose.position, pose.atHelm);
+                if (pose.id == network.LocalClientId) player.ApplyNetworkPose(pose);
                 if (!avatars.TryGetValue(pose.id, out SailorAvatar avatar))
                 {
                     avatar = new GameObject().AddComponent<SailorAvatar>();
@@ -314,38 +316,35 @@ namespace TradeWinds
                     avatar.Build(crewMaterial, (int)(pose.id % 4));
                     avatars[pose.id] = avatar;
                 }
-                avatar.SetPose(pose.position, pose.yaw, pose.id == network.LocalClientId && !player.ExternalView, carrier == (long)pose.id);
+                Transform parent = pose.aboard ? ship.transform : null;
+                if (avatar.transform.parent != parent) avatar.transform.SetParent(parent, true);
+                bool holdsCargo = false;
+                foreach (CargoPose cargo in snapshot.items) holdsCargo |= cargo.carrier == (long)pose.id;
+                avatar.SetPose(pose.position, pose.yaw - (pose.aboard ? (float)ship.State.Heading : 0), pose.id == network.LocalClientId && !player.ExternalView, holdsCargo);
             }
             removedIds.Clear();
             foreach (var pair in avatars) if (!visibleIds.Contains(pair.Key)) removedIds.Add(pair.Key);
             foreach (ulong id in removedIds) { Destroy(avatars[id].gameObject); avatars.Remove(id); }
         }
 
-        public void InteractOffline()
-        {
-            if (!Active && !player.AtHelm) Interact(0, player.DeckPosition);
-        }
+        public void ResetCargo() { foreach (var item in items) item.ResetItem(); }
 
-        private void Interact(ulong id, Vector3 position)
+        private void ClearSailors()
         {
-            if (carrier == (long)id)
-            {
-                // Drop at the sailor's known valid feet position, never through the rail or into fixed cargo.
-                cargoPosition = position + Vector3.up * 0.45f;
-                carrier = -1; Status = "Ящик поставлен на палубу.";
-            }
-            else if (carrier == -1 && Vector3.Distance(position + Vector3.up * 0.5f, cargoPosition) < 1.8f)
-            { carrier = (long)id; Status = "Ящик в руках • F — поставить"; }
+            foreach (var sailor in sailors.Values) if (sailor.actor != null) Destroy(sailor.actor.gameObject);
+            sailors.Clear();
         }
 
         private void LateUpdate()
         {
             offlineAvatar.gameObject.SetActive(!Active);
-            if (!Active) offlineAvatar.SetPose(player.DeckPosition, player.LookYaw, !player.ExternalView, carrier == 0);
-            if (!Active && carrier == 0)
-                cargoPosition = player.DeckPosition + Vector3.up * 0.9f
-                    + Quaternion.Euler(0, player.LookYaw, 0) * Vector3.forward * 0.85f;
-            crate.localPosition = cargoPosition;
+            if (!Active)
+            {
+                Transform parent = player.Aboard ? ship.transform : null;
+                if (offlineAvatar.transform.parent != parent) offlineAvatar.transform.SetParent(parent, true);
+                offlineAvatar.SetPose(player.Aboard ? player.DeckPosition : player.WorldPosition,
+                    player.LookYaw - (player.Aboard ? (float)ship.State.Heading : 0), !player.ExternalView, player.OfflineActor.Interaction.HeldItem != null);
+            }
         }
 
         public void DrawLobbyGUI()
@@ -363,15 +362,15 @@ namespace TradeWinds
             GUI.Label(new Rect(932, 408, 300, 40), "Порт 7777 • Steam-лобби ещё нет");
         }
 
-        private static Vector3 Position(DeckMotor motor) { return new Vector3(motor.X, motor.Y, motor.Z); }
         private static bool Finite(float value) { return !float.IsNaN(value) && !float.IsInfinity(value); }
-        private static void ClearActions(ref CrewInput input) { input.jump = input.helm = input.anchor = input.cargo = false; }
+        private static void ClearActions(ref CrewInput input) { input.jump = input.helm = input.anchor = input.cargo = input.throwItem = false; }
 
         private void OnDestroy()
         {
             if (network == null) return;
             network.OnClientConnectedCallback -= Connected;
             network.OnClientDisconnectCallback -= Disconnected;
+            ClearSailors();
             network.Shutdown();
             Destroy(network.gameObject);
         }
