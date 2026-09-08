@@ -64,7 +64,7 @@ namespace TradeWinds
             Check(48, 264, walked, "Пройтись по палубе на ходу");
 
             Panel(new Rect(28, 534, 286, 158));
-            GUI.Label(new Rect(48, 548, 230, 24), player.AtHelm ? "КАПИТАН" : "НА ПАЛУБЕ", muted);
+            GUI.Label(new Rect(48, 548, 230, 24), player.Climbing ? "НА ЛЕСТНИЦЕ" : player.AtHelm ? "КАПИТАН" : player.Aboard ? "НА ПАЛУБЕ" : "НА СУШЕ", muted);
             GUI.Label(new Rect(48, 576, 120, 45), speed, number);
             GUI.Label(new Rect(156, 590, 135, 25), "узлов  /  " + distance, muted);
             GUI.Label(new Rect(48, 630, 230, 20), "ПАРУС   " + Mathf.RoundToInt((float)ship.State.Sail * 100) + "%", label);
@@ -72,10 +72,11 @@ namespace TradeWinds
             Fill(new Rect(48, 660, 244 * (float)ship.State.Sail, 4), gold);
 
             Panel(new Rect(344, 602, 908, 90));
-            string prompt = player.AtHelm ? "W / S  Парус     A / D  Руль     B  Якорь     E  Отпустить штурвал"
-                : "WASD / СТРЕЛКИ  Ходить     ПРОБЕЛ  Прыгать     SHIFT  Бежать     F  Ящик";
+            string prompt = player.Climbing ? "W / S  Вверх / вниз по лестнице     ПРОБЕЛ  Выйти"
+                : player.AtHelm ? "W / S  Парус     A / D  Руль     B  Якорь     E  Отпустить штурвал"
+                : "WASD  Ходить     ПРОБЕЛ  Прыгать     E / F  Взаимодействие     ЛКМ  Бросок";
             GUI.Label(new Rect(364, 614, 862, 25), prompt, label);
-            GUI.Label(new Rect(364, 649, 860, 25), "E  Штурвал рядом     TAB  Вид снаружи     ESC  Меню и кооп     R  Сначала (соло)", muted);
+            GUI.Label(new Rect(364, 649, 860, 25), "TAB  От третьего лица     V  Весь корабль     ESC  Меню / кооп     R  Сначала (соло)", muted);
             if (!player.ExternalView && !player.Paused) GUI.Label(new Rect(634, 350, 20, 24), "+", label);
             GUI.Label(new Rect(354, 550, 880, 42), ship.Notice, label);
             GUI.Label(new Rect(354, 510, 880, 36), player.Session.Status, muted);
