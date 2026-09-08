@@ -118,7 +118,11 @@ namespace TradeWinds
             var player = new GameObject("Deck sailor").AddComponent<DeckPlayer>();
             player.transform.SetParent(transform);
             player.Initialize(ship, camera);
+            var cargo = Box("Переносимый ящик · F", shipRoot, new Vector3(1.7f, 2.6f, -1.8f), Vector3.one * 0.8f, deck);
+            Box("Cargo band", cargo, Vector3.zero, new Vector3(1.04f, 1.04f, 0.16f), hull);
+            gameObject.AddComponent<CoopSession>().Initialize(ship, player, cargo, red);
             gameObject.AddComponent<PrototypeHud>().Initialize(ship, player);
+            Debug.Log("First Voyage ready: ship, ocean, three islands, walking, jumping and co-op lobby.");
         }
 
         private void LateUpdate()

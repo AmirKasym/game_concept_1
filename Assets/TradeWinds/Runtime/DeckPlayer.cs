@@ -12,18 +12,15 @@ namespace TradeWinds
         public bool NearHelm { get { return Vector3.Distance(localPosition, HelmPosition) < 2.4f; } }
         public float Sensitivity { get; set; } = 0.12f;
         public float CameraRock { get; set; } = 0.65f;
+        public CoopSession Session { get; set; }
+        public Vector3 DeckPosition { get { return localPosition; } }
+        public float LookYaw { get { return yaw; } }
+        private readonly DeckMotor motor = new DeckMotor();
         private ShipController ship;
         private Camera view;
         private Vector3 localPosition = new Vector3(1.5f, 2.15f, -4.6f);
         private float yaw;
         private float pitch = 8;
-        // Deterministic local deck bounds avoid rigidbody/parent jitter on a moving ship.
-        private readonly Rect[] obstacles = {
-            new Rect(-0.65f, -0.65f, 1.3f, 1.3f),
-            new Rect(-2.8f, 1.7f, 2.15f, 2.6f),
-            new Rect(0.75f, 1.7f, 2.05f, 2.6f),
-            new Rect(-0.7f, -4.4f, 1.4f, 1.3f)
-        };
 
         public void Initialize(ShipController controller, Camera camera)
         {
@@ -38,43 +35,47 @@ namespace TradeWinds
             var mouse = Mouse.current;
             if (keyboard == null || ship == null) return;
             if (keyboard.escapeKey.wasPressedThisFrame) SetPaused(!Paused);
-            if (Paused) return;
+            if (Paused)
+            {
+                if (Session != null) Session.SetInput(new CrewInput());
+                return;
+            }
             if (mouse != null && Cursor.lockState == CursorLockMode.Locked)
             {
                 Vector2 look = mouse.delta.ReadValue() * Sensitivity;
                 yaw += look.x;
                 pitch = Mathf.Clamp(pitch - look.y, -65, 70);
             }
-            if (keyboard.eKey.wasPressedThisFrame && (AtHelm || NearHelm))
+            if (keyboard.tabKey.wasPressedThisFrame) ExternalView = !ExternalView;
+            float horizontal = (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0);
+            float vertical = (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0);
+            bool jump = keyboard.spaceKey.wasPressedThisFrame;
+            if (Session != null && Session.Active)
+            {
+                Session.SetInput(new CrewInput { horizontal = horizontal, forward = vertical, yaw = yaw,
+                    sprint = keyboard.leftShiftKey.isPressed, jump = jump, helm = keyboard.eKey.wasPressedThisFrame,
+                    anchor = keyboard.bKey.wasPressedThisFrame, cargo = keyboard.fKey.wasPressedThisFrame });
+                return;
+            }
+            if (keyboard.eKey.wasPressedThisFrame && (AtHelm || NearHelm) && motor.Grounded)
             {
                 AtHelm = !AtHelm;
-                if (AtHelm) { localPosition = HelmPosition; yaw = 0; pitch = 8; }
+                if (AtHelm) { motor.Reset(0, -5.3f); localPosition = HelmPosition; yaw = 0; pitch = 8; }
             }
-            if (keyboard.tabKey.wasPressedThisFrame) ExternalView = !ExternalView;
             if (keyboard.rKey.wasPressedThisFrame) ResetPlayerAndShip();
-            float horizontal = (keyboard.dKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed ? 1 : 0);
-            float vertical = (keyboard.wKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed ? 1 : 0);
+            if (jump) AtHelm = false;
             ship.Steering = AtHelm ? horizontal : 0;
             ship.SailChange = AtHelm ? vertical : 0;
-            if (AtHelm && keyboard.spaceKey.wasPressedThisFrame) ship.ToggleAnchor();
+            if (AtHelm && keyboard.bKey.wasPressedThisFrame) ship.ToggleAnchor();
             if (!AtHelm)
             {
-                Vector3 direction = Quaternion.Euler(0, yaw, 0) * new Vector3(horizontal, 0, vertical).normalized;
-                Vector3 delta = direction * (keyboard.leftShiftKey.isPressed ? 4.2f : 2.7f) * Time.deltaTime;
-                MoveLocal(new Vector3(delta.x, 0, 0));
-                MoveLocal(new Vector3(0, 0, delta.z));
+                motor.Step(Mathf.Min(Time.deltaTime, 0.1f), horizontal, vertical, yaw, keyboard.leftShiftKey.isPressed, jump);
+                localPosition = new Vector3(motor.X, motor.Y, motor.Z);
             }
+            if (Session != null && keyboard.fKey.wasPressedThisFrame) Session.InteractOffline();
         }
 
-        private void MoveLocal(Vector3 delta)
-        {
-            var next = localPosition + delta;
-            next.x = Mathf.Clamp(next.x, -2.5f, 2.5f);
-            next.z = Mathf.Clamp(next.z, -6.5f, 6.3f);
-            foreach (Rect obstacle in obstacles)
-                if (obstacle.Contains(new Vector2(next.x, next.z))) return;
-            localPosition = next;
-        }
+        public void ApplyNetworkPose(Vector3 position, bool atHelm) { localPosition = position; AtHelm = atHelm; }
 
         private void LateUpdate()
         {
@@ -102,7 +103,7 @@ namespace TradeWinds
         public void SetPaused(bool paused)
         {
             Paused = paused;
-            ship.Paused = paused;
+            ship.Paused = Session != null && Session.Active ? !Session.IsHost : paused;
             ship.Steering = ship.SailChange = 0;
             LockCursor(!paused);
         }
@@ -110,6 +111,7 @@ namespace TradeWinds
         public void ResetPlayerAndShip()
         {
             ship.ResetVoyage();
+            motor.Reset();
             localPosition = new Vector3(1.5f, 2.15f, -4.6f);
             AtHelm = false;
             yaw = 0;
