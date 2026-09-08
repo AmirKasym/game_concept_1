@@ -63,12 +63,17 @@ namespace TradeWinds.Editor
                 if (lit == null || sea == null) throw new InvalidOperationException("Wait for shader/package import, then prepare again.");
                 Scene previous = SceneManager.GetActiveScene();
                 bool replaceEmpty = previous.IsValid() && previous.path == "" && !previous.isDirty;
-                Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+                if (previous.IsValid() && previous.path == "" && previous.isDirty)
+                {
+                    Debug.LogWarning("First Voyage setup paused because the active untitled scene has unsaved changes. Save or discard it, then use Trade Winds > Prepare prototype.");
+                    return;
+                }
+                Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene,
+                    replaceEmpty ? NewSceneMode.Single : NewSceneMode.Additive);
                 SceneManager.SetActiveScene(scene);
                 new GameObject("First Voyage | procedural scene").AddComponent<PrototypeWorld>().Configure(lit, sea);
                 EditorSceneManager.SaveScene(scene, ScenePath);
-                if (replaceEmpty) EditorSceneManager.CloseScene(previous, true);
-                else
+                if (!replaceEmpty)
                 {
                     if (previous.IsValid()) SceneManager.SetActiveScene(previous);
                     EditorSceneManager.CloseScene(scene, true);
