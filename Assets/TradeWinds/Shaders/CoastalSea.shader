@@ -2,8 +2,8 @@ Shader "TradeWinds/CoastalSea"
 {
     Properties
     {
-        _DeepColor ("Deep water", Color) = (0.035, 0.18, 0.21, 1)
-        _CrestColor ("Wave crests", Color) = (0.24, 0.46, 0.45, 1)
+        _DeepColor ("Deep water", Color) = (0.025, 0.19, 0.26, 1)
+        _CrestColor ("Wave crests", Color) = (0.16, 0.48, 0.48, 1)
     }
     SubShader
     {
@@ -16,6 +16,7 @@ Shader "TradeWinds/CoastalSea"
             #pragma fragment Frag
             #pragma multi_compile_fog
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             CBUFFER_START(UnityPerMaterial)
                 half4 _DeepColor;
                 half4 _CrestColor;
@@ -43,12 +44,21 @@ Shader "TradeWinds/CoastalSea"
             half4 Frag(Varyings input) : SV_Target
             {
                 float3 n = normalize(input.normalWS);
+                float2 p = input.positionWS.xz;
+                n.xz += float2(sin(p.x * 1.8 + p.y * 0.8 + _VoyageTime * 1.7),
+                    cos(p.y * 2.1 - p.x * 0.7 + _VoyageTime * 1.2)) * 0.035;
+                n = normalize(n);
                 float3 view = GetWorldSpaceNormalizeViewDir(input.positionWS);
                 float fresnel = pow(1 - saturate(dot(n, view)), 4);
                 float ripple = sin(input.positionWS.x * 1.7 + input.positionWS.z * 2.3 + _VoyageTime) * 0.012;
                 half3 color = lerp(_DeepColor.rgb, _CrestColor.rgb, saturate(0.3 + input.positionWS.y * 0.5 + fresnel * 0.4 + ripple));
-                float glint = pow(saturate(dot(reflect(-normalize(float3(-0.4, 0.6, 0.3)), n), view)), 64);
-                color += half3(1, 0.8, 0.48) * glint * 0.5;
+                Light sun = GetMainLight();
+                float glint = pow(saturate(dot(normalize(view + sun.direction), n)), 180);
+                color = lerp(color, half3(0.56, 0.71, 0.77), fresnel * 0.55);
+                color += sun.color * glint * 0.85;
+                float crest = sin(p.x * 0.075 + p.y * 0.12 + _VoyageTime * 0.9);
+                float foam = smoothstep(0.965, 1.0, crest) * smoothstep(0.2, 0.8, sin(p.x * 1.1 - p.y * 1.6));
+                color = lerp(color, half3(0.69, 0.86, 0.8), foam * 0.18);
                 return half4(MixFog(color, input.fog), 1);
             }
             ENDHLSL

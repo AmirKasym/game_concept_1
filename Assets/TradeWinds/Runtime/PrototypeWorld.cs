@@ -10,13 +10,31 @@ namespace TradeWinds
         [SerializeField] private Shader litShader;
         [SerializeField] private Shader seaShader;
         private readonly List<Object> ownedAssets = new List<Object>();
-        private ShipController ship;
-        private Transform ocean;
+        [SerializeField] private ShipController ship;
+        [SerializeField] private Transform ocean;
+        [SerializeField] private Camera sceneCamera;
+        [SerializeField] private DeckPlayer scenePlayer;
+        [SerializeField] private Transform sceneCargo;
+        [SerializeField] private Material crewMaterial;
+        public IReadOnlyList<Object> GeneratedAssets { get { return ownedAssets; } }
 
         public void Configure(Shader lit, Shader sea) { litShader = lit; seaShader = sea; }
 
         private void Start()
         {
+            if (ship == null) BuildSceneContent();
+            if (ship == null) return;
+            Application.targetFrameRate = 60;
+            Time.fixedDeltaTime = 0.02f;
+            scenePlayer.Initialize(ship, sceneCamera);
+            gameObject.AddComponent<CoopSession>().Initialize(ship, scenePlayer, sceneCargo, crewMaterial);
+            gameObject.AddComponent<PrototypeHud>().Initialize(ship, scenePlayer);
+            Debug.Log("First Voyage ready: ship, ocean, three islands, walking, jumping and co-op lobby.");
+        }
+
+        public void BuildSceneContent()
+        {
+            if (ship != null) return;
             if (litShader == null || seaShader == null)
             {
                 Debug.LogError("Prototype shaders are missing. Run Trade Winds > Prepare prototype.");
@@ -27,11 +45,19 @@ namespace TradeWinds
             Time.fixedDeltaTime = 0.02f;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogStartDistance = 70;
-            RenderSettings.fogEndDistance = 340;
-            RenderSettings.fogColor = new Color(0.46f, 0.59f, 0.6f);
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.53f, 0.62f, 0.66f);
+            RenderSettings.fogStartDistance = 125;
+            RenderSettings.fogEndDistance = 425;
+            RenderSettings.fogColor = new Color(0.69f, 0.79f, 0.78f);
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.52f, 0.66f, 0.8f);
+            RenderSettings.ambientEquatorColor = new Color(0.44f, 0.5f, 0.51f);
+            RenderSettings.ambientGroundColor = new Color(0.2f, 0.25f, 0.26f);
+            Shader skyShader = Shader.Find("TradeWinds/CoastalSky");
+            if (skyShader != null)
+            {
+                var sky = new Material(skyShader) { name = "Coastal sky and clouds" };
+                ownedAssets.Add(sky); RenderSettings.skybox = sky;
+            }
             var sun = new GameObject("Late afternoon sun").AddComponent<Light>();
             sun.transform.SetParent(transform);
             sun.type = LightType.Directional;
@@ -39,10 +65,12 @@ namespace TradeWinds
             sun.intensity = 1.8f;
             sun.shadows = LightShadows.Soft;
             sun.transform.rotation = Quaternion.Euler(27, -35, 0);
+            RenderSettings.sun = sun;
 
             Material hull = Material("Midnight teal hull", new Color(0.08f, 0.2f, 0.22f));
             Material wood = Material("Oiled timber", new Color(0.33f, 0.21f, 0.12f));
             Material deck = Material("Honey deck", new Color(0.57f, 0.41f, 0.24f));
+            Material lightBoard = Material("Sunlit timber", new Color(0.62f, 0.46f, 0.29f));
             Material brass = Material("Warm brass", new Color(0.76f, 0.52f, 0.22f));
             Material canvas = Material("Ivory canvas", new Color(0.86f, 0.81f, 0.64f));
             canvas.SetFloat("_Cull", 0);
@@ -58,7 +86,12 @@ namespace TradeWinds
             MeshObject("Hull", HullMesh(), hull, shipRoot);
             Box("Deck", shipRoot, new Vector3(0, 1.98f, -0.3f), new Vector3(6, 0.3f, 14.5f), deck);
             for (int i = 0; i < 22; i++)
+            {
+                if (i % 3 == 0) Box("Weathered deck board", shipRoot, new Vector3(0, 2.136f, -6.68f + i * 0.65f), new Vector3(5.97f, 0.01f, 0.61f), lightBoard);
                 Box("Plank joint", shipRoot, new Vector3(0, 2.139f, -7 + i * 0.65f), new Vector3(5.98f, 0.008f, 0.025f), wood);
+                foreach (int side in new[] { -1, 1 })
+                    Box("Deck nail", shipRoot, new Vector3(side * 2.7f, 2.146f, -6.7f + i * 0.65f), new Vector3(0.035f, 0.008f, 0.035f), brass);
+            }
             foreach (int side in new[] { -1, 1 })
             {
                 Box("Bulwark", shipRoot, new Vector3(side * 3.02f, 2.6f, -0.3f), new Vector3(0.18f, 1, 14.5f), hull);
@@ -68,6 +101,12 @@ namespace TradeWinds
             }
             Box("Stern rail", shipRoot, new Vector3(0, 2.7f, -7.5f), new Vector3(6, 1, 0.2f), hull);
             Box("Bow rail", shipRoot, new Vector3(0, 2.7f, 7), new Vector3(6, 1, 0.2f), hull);
+            foreach (int side in new[] { -1, 1 })
+            {
+                Box("Navigation lamp bracket", shipRoot, new Vector3(side * 2.75f, 3.32f, 5.8f), new Vector3(0.16f, 0.42f, 0.16f), brass);
+                Box("Navigation lantern", shipRoot, new Vector3(side * 2.75f, 3.6f, 5.8f), new Vector3(0.3f, 0.34f, 0.3f), lamp);
+                Box("Lantern hood", shipRoot, new Vector3(side * 2.75f, 3.83f, 5.8f), new Vector3(0.42f, 0.12f, 0.42f), brass);
+            }
             Box("Mast", shipRoot, new Vector3(0, 7.5f, 0), new Vector3(0.55f, 11, 0.55f), wood);
             Box("Yard", shipRoot, new Vector3(0, 11.8f, 0.1f), new Vector3(9.5f, 0.23f, 0.23f), wood);
             var sailPivot = new GameObject("Sail top pivot").transform;
@@ -108,21 +147,22 @@ namespace TradeWinds
             ocean.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
 
             var camera = new GameObject("Main Camera").AddComponent<Camera>();
+            sceneCamera = camera;
             camera.gameObject.tag = "MainCamera";
             camera.transform.SetParent(transform);
             camera.fieldOfView = 72;
             camera.nearClipPlane = 0.08f;
             camera.farClipPlane = 450;
-            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.clearFlags = CameraClearFlags.Skybox;
             camera.backgroundColor = RenderSettings.fogColor;
             var player = new GameObject("Deck sailor").AddComponent<DeckPlayer>();
+            scenePlayer = player;
             player.transform.SetParent(transform);
-            player.Initialize(ship, camera);
             var cargo = Box("Переносимый ящик · F", shipRoot, new Vector3(1.7f, 2.6f, -1.8f), Vector3.one * 0.8f, deck);
             Box("Cargo band", cargo, Vector3.zero, new Vector3(1.04f, 1.04f, 0.16f), hull);
-            gameObject.AddComponent<CoopSession>().Initialize(ship, player, cargo, red);
-            gameObject.AddComponent<PrototypeHud>().Initialize(ship, player);
-            Debug.Log("First Voyage ready: ship, ocean, three islands, walking, jumping and co-op lobby.");
+            sceneCargo = cargo; crewMaterial = red;
+            camera.transform.position = ship.transform.TransformPoint(new Vector3(1.5f, 3.8f, -4.6f));
+            camera.transform.rotation = Quaternion.Euler(8, 0, 0);
         }
 
         private void LateUpdate()
@@ -149,7 +189,8 @@ namespace TradeWinds
             item.transform.localScale = scale;
             item.GetComponent<Renderer>().sharedMaterial = material;
             // Deck movement uses explicit local bounds, never mesh physics.
-            Destroy(item.GetComponent<Collider>());
+            if (Application.isPlaying) Destroy(item.GetComponent<Collider>());
+            else DestroyImmediate(item.GetComponent<Collider>());
             return item.transform;
         }
 
@@ -190,6 +231,17 @@ namespace TradeWinds
             Box("Lantern room", root, new Vector3(0, 31, 0), new Vector3(4, 2, 4), lamp);
             Box("Lantern roof", root, new Vector3(0, 32.8f, 0), new Vector3(7, 1.2f, 7), roof);
             Box("Landing pier", root, new Vector3(22, 2, 0), new Vector3(18, 0.5f, 4), wood);
+            for (int i = 0; i < 7; i++)
+            {
+                foreach (int side in new[] { -1, 1 })
+                    Box("Pier piling", root, new Vector3(15 + i * 2.5f, 0.6f, side * 1.8f), new Vector3(0.4f, 5, 0.4f), wood);
+            }
+            Box("Harbor store", root, new Vector3(11, 5.3f, -6), new Vector3(7, 6, 5), wall);
+            var portRoof = Box("Red harbor roof", root, new Vector3(11, 8.6f, -6), new Vector3(8, 1, 6.2f), roof);
+            portRoof.localRotation = Quaternion.Euler(0, 0, 8);
+            Box("Warehouse door", root, new Vector3(14.55f, 4.4f, -6), new Vector3(0.12f, 3.5f, 2.2f), wood);
+            for (int i = 0; i < 3; i++)
+                Box("Dock supplies", root, new Vector3(19 + i * 1.3f, 2.85f, -0.8f), new Vector3(1, 1.2f, 1), i % 2 == 0 ? wood : roof);
         }
 
         private static Mesh HullMesh()
@@ -259,7 +311,8 @@ namespace TradeWinds
 
         private void OnDestroy()
         {
-            foreach (Object asset in ownedAssets) if (asset != null) Destroy(asset);
+            if (Application.isPlaying)
+                foreach (Object asset in ownedAssets) if (asset != null) Destroy(asset);
             ownedAssets.Clear();
         }
     }

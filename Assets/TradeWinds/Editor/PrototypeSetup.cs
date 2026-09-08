@@ -26,6 +26,8 @@ namespace TradeWinds.Editor
                 return;
             }
             if (!File.Exists(ScenePath)) Prepare();
+            else BakeScene();
+            EditorSceneManager.playModeStartScene = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);
         }
 
         [MenuItem("Trade Winds/Prepare prototype")]
@@ -83,8 +85,53 @@ namespace TradeWinds.Editor
             var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             if (!scenes.Exists(s => s.path == ScenePath)) scenes.Insert(0, new EditorBuildSettingsScene(ScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();
+            BakeScene();
             AssetDatabase.SaveAssets();
             Debug.Log("First Voyage prepared. Open Assets/TradeWinds/Scenes/FirstVoyage.unity and press Play.");
+        }
+
+        private static void BakeScene()
+        {
+            Scene scene = SceneManager.GetSceneByPath(ScenePath);
+            bool alreadyOpen = scene.IsValid() && scene.isLoaded;
+            if (alreadyOpen && scene.isDirty) return;
+            Scene previous = SceneManager.GetActiveScene();
+            if (!alreadyOpen)
+            {
+                if (previous.path == "" && previous.isDirty) return;
+                scene = EditorSceneManager.OpenScene(ScenePath,
+                    previous.path == "" ? OpenSceneMode.Single : OpenSceneMode.Additive);
+            }
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                var world = root.GetComponent<PrototypeWorld>();
+                if (world == null || world.transform.childCount > 0) continue;
+                SceneManager.SetActiveScene(scene);
+                world.BuildSceneContent();
+                Directory.CreateDirectory("Assets/TradeWinds/Generated");
+                AssetDatabase.Refresh();
+                int index = 0;
+                foreach (UnityEngine.Object asset in world.GeneratedAssets)
+                {
+                    if (AssetDatabase.Contains(asset)) continue;
+                    string path = AssetDatabase.GenerateUniqueAssetPath("Assets/TradeWinds/Generated/World-" + index++ + ".asset");
+                    AssetDatabase.CreateAsset(asset, path);
+                }
+                EditorUtility.SetDirty(world);
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+                Debug.Log("First Voyage scene baked: visible ship and sea before Play Mode.");
+            }
+            if (previous.IsValid() && previous.isLoaded) SceneManager.SetActiveScene(previous);
+            if (!alreadyOpen && previous.IsValid() && previous.isLoaded) EditorSceneManager.CloseScene(scene, true);
+        }
+
+        [MenuItem("Trade Winds/Play First Voyage")]
+        public static void PlayFirstVoyage()
+        {
+            Prepare();
+            EditorSceneManager.playModeStartScene = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);
+            EditorApplication.isPlaying = true;
         }
 
         [MenuItem("Trade Winds/Build Windows prototype")]

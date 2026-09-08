@@ -10,9 +10,11 @@ namespace TradeWinds
         public float SailChange { get; set; }
         public bool Paused { get; set; }
         public string Notice { get; private set; } = "Подойдите к штурвалу и нажмите E.";
-        private Transform wheel;
-        private Transform sail;
-        private Vector3[] islands;
+        [SerializeField] private Transform wheel;
+        [SerializeField] private Transform sail;
+        [SerializeField] private Vector3[] islands;
+
+        private void Awake() { State = new ShipSimulation(); }
 
         public void Initialize(Transform wheelVisual, Transform sailVisual, Vector3[] obstacles)
         {

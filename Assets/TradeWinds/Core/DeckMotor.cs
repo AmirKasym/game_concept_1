@@ -6,11 +6,12 @@ namespace TradeWinds
     public sealed class DeckMotor
     {
         public const float Floor = 2.15f;
-        public float X { get; private set; } = 1.5f;
-        public float Y { get; private set; } = Floor;
-        public float Z { get; private set; } = -4.6f;
+        public float X { get; private set; }
+        public float Y { get; private set; }
+        public float Z { get; private set; }
         public float VerticalSpeed { get; private set; }
-        public bool Grounded { get; private set; } = true;
+        public bool Grounded { get; private set; }
+        public DeckMotor() { Reset(); }
 
         public void Reset(float x = 1.5f, float z = -4.6f)
         {

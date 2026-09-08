@@ -47,7 +47,8 @@ namespace TradeWinds
             public bool atHelm;
         }
         private readonly Dictionary<ulong, Sailor> sailors = new Dictionary<ulong, Sailor>();
-        private readonly Dictionary<ulong, GameObject> avatars = new Dictionary<ulong, GameObject>();
+        private readonly Dictionary<ulong, SailorAvatar> avatars = new Dictionary<ulong, SailorAvatar>();
+        private SailorAvatar offlineAvatar;
         private readonly HashSet<ulong> visibleIds = new HashSet<ulong>();
         private readonly List<ulong> removedIds = new List<ulong>();
         private NetworkManager network;
@@ -67,14 +68,21 @@ namespace TradeWinds
         public bool IsHost { get { return network != null && network.IsHost; } }
         public int CrewCount { get { return IsHost ? sailors.Count : avatars.Count; } }
         public string Status { get; private set; } = "F — поднять ящик рядом. ESC — меню кооператива.";
+        public VoyageSnapshot LastSnapshot { get; private set; }
+        public ulong LocalClientId { get { return network.LocalClientId; } }
 
         public void Initialize(ShipController controller, DeckPlayer deckPlayer, Transform cargo, Material material)
         {
             ship = controller; player = deckPlayer; crate = cargo; crewMaterial = material;
+            Application.runInBackground = true;
             player.Session = this;
+            offlineAvatar = new GameObject("Матрос · одиночная игра").AddComponent<SailorAvatar>();
+            offlineAvatar.transform.SetParent(ship.transform, false);
+            offlineAvatar.Build(crewMaterial, 0);
             var root = new GameObject("Coop connection");
             transport = root.AddComponent<UnityTransport>();
             network = root.AddComponent<NetworkManager>();
+            network.NetworkConfig = new NetworkConfig();
             network.NetworkConfig.NetworkTransport = transport;
             network.NetworkConfig.EnableSceneManagement = false;
             network.NetworkConfig.ConnectionApproval = true;
@@ -172,7 +180,7 @@ namespace TradeWinds
 
         private void ReturnOffline()
         {
-            foreach (var avatar in avatars.Values) if (avatar != null) Destroy(avatar);
+            foreach (var avatar in avatars.Values) if (avatar != null) Destroy(avatar.gameObject);
             avatars.Clear(); sailors.Clear(); carrier = -1; pending = new CrewInput();
             player.ResetPlayerAndShip();
             player.SetPaused(true);
@@ -285,35 +293,32 @@ namespace TradeWinds
             using (var writer = new FastBufferWriter(8192, Allocator.Temp))
             {
                 writer.WriteValueSafe(json);
-                network.CustomMessagingManager.SendNamedMessage(message, target, writer, NetworkDelivery.ReliableSequenced);
+                network.CustomMessagingManager.SendNamedMessage(message, target, writer, NetworkDelivery.ReliableFragmentedSequenced);
             }
         }
 
         private void Present(VoyageSnapshot snapshot)
         {
+            LastSnapshot = snapshot;
             cargoPosition = snapshot.cargo; carrier = snapshot.carrier;
             visibleIds.Clear();
             foreach (CrewPose pose in snapshot.crew)
             {
                 visibleIds.Add(pose.id);
                 if (pose.id == network.LocalClientId) player.ApplyNetworkPose(pose.position, pose.atHelm);
-                if (!avatars.TryGetValue(pose.id, out GameObject avatar))
+                if (!avatars.TryGetValue(pose.id, out SailorAvatar avatar))
                 {
-                    avatar = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                    avatar = new GameObject().AddComponent<SailorAvatar>();
                     avatar.name = "Матрос " + (pose.id + 1);
                     avatar.transform.SetParent(ship.transform, false);
-                    avatar.transform.localScale = new Vector3(0.55f, 0.85f, 0.55f);
-                    Destroy(avatar.GetComponent<Collider>());
-                    avatar.GetComponent<Renderer>().sharedMaterial = crewMaterial;
+                    avatar.Build(crewMaterial, (int)(pose.id % 4));
                     avatars[pose.id] = avatar;
                 }
-                avatar.SetActive(pose.id != network.LocalClientId || player.ExternalView);
-                avatar.transform.localPosition = pose.position + Vector3.up * 0.85f;
-                avatar.transform.localRotation = Quaternion.Euler(0, pose.yaw, 0);
+                avatar.SetPose(pose.position, pose.yaw, pose.id == network.LocalClientId && !player.ExternalView, carrier == (long)pose.id);
             }
             removedIds.Clear();
             foreach (var pair in avatars) if (!visibleIds.Contains(pair.Key)) removedIds.Add(pair.Key);
-            foreach (ulong id in removedIds) { Destroy(avatars[id]); avatars.Remove(id); }
+            foreach (ulong id in removedIds) { Destroy(avatars[id].gameObject); avatars.Remove(id); }
         }
 
         public void InteractOffline()
@@ -335,6 +340,8 @@ namespace TradeWinds
 
         private void LateUpdate()
         {
+            offlineAvatar.gameObject.SetActive(!Active);
+            if (!Active) offlineAvatar.SetPose(player.DeckPosition, player.LookYaw, !player.ExternalView, carrier == 0);
             if (!Active && carrier == 0)
                 cargoPosition = player.DeckPosition + Vector3.up * 0.9f
                     + Quaternion.Euler(0, player.LookYaw, 0) * Vector3.forward * 0.85f;
