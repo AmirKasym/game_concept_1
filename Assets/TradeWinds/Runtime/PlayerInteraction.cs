@@ -25,8 +25,13 @@ namespace TradeWinds
 
         public Component FindTarget()
         {
+            return FindTarget(Eye.position, Eye.forward, hits, range);
+        }
+
+        public static Component FindTarget(Vector3 origin, Vector3 direction, RaycastHit[] hits, float range = 2.5f)
+        {
             Physics.SyncTransforms();
-            int count = Physics.RaycastNonAlloc(Eye.position, Eye.forward, hits, range, ~(1 << 2), QueryTriggerInteraction.Collide);
+            int count = Physics.RaycastNonAlloc(origin, direction, hits, range, ~((1 << 2) | LayerMask.GetMask("Player", "Water")), QueryTriggerInteraction.Collide);
             float nearest = range + 1; Component target = null;
             for (int i = 0; i < count; i++)
             {
@@ -34,8 +39,9 @@ namespace TradeWinds
                 if (hit.distance >= nearest) continue;
                 var item = hit.collider.GetComponentInParent<PickableItem>();
                 var ladder = hit.collider.GetComponentInParent<LadderInteraction>();
-                if (hit.collider.isTrigger && ladder == null) continue;
-                nearest = hit.distance; target = item != null ? (Component)item : ladder;
+                var helm = hit.collider.GetComponentInParent<HelmInteraction>();
+                if (hit.collider.isTrigger && ladder == null && helm == null) continue;
+                nearest = hit.distance; target = item != null ? (Component)item : ladder != null ? (Component)ladder : helm;
             }
             return target;
         }
@@ -50,6 +56,7 @@ namespace TradeWinds
                 return true;
             }
             if (target is LadderInteraction ladder) { ladder.TryBegin(actor); return true; }
+            if (target is HelmInteraction helm) return helm.TryBegin(actor);
             return false;
         }
 

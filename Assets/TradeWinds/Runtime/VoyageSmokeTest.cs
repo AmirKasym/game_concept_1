@@ -40,9 +40,14 @@ namespace TradeWinds
             session = FindFirstObjectByType<CoopSession>(); player = FindFirstObjectByType<DeckPlayer>();
             if (session == null || player == null) { Debug.LogError("SMOKE: world did not start"); Application.Quit(2); yield break; }
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+#if UNITY_EDITOR
+            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+#endif
             keyboard = InputSystem.AddDevice<Keyboard>(); keyboard.MakeCurrent();
             player.SetPaused(false);
             if (role == "systems") { yield return RunSystems(); yield break; }
+            if (role == "water") { yield return RunWater(); yield break; }
+            if (role == "cargo-host" || role == "cargo-client") { yield return RunNetworkCargo(); yield break; }
             if (role == "host") session.StartHost(); else session.StartClient("127.0.0.1");
             float deadline = Time.realtimeSinceStartup + 20;
             while (session.LastSnapshot == null && Time.realtimeSinceStartup < deadline) yield return null;
@@ -50,6 +55,8 @@ namespace TradeWinds
             yield return Keys(0.4f);
             if (role == "host")
             {
+                player.LookAtPoint(player.OfflineActor.HomeShip.transform.TransformPoint(new Vector3(0, 3.4f, -3.95f)));
+                yield return Keys(0.2f);
                 yield return Keys(0.15f, Key.E);
                 yield return Keys(0.15f);
                 float pickupDeadline = Time.realtimeSinceStartup + 30;
@@ -100,8 +107,8 @@ namespace TradeWinds
 
         private IEnumerator Keys(float duration, params Key[] keys)
         {
-            float end = Time.realtimeSinceStartup + duration;
-            while (Time.realtimeSinceStartup < end)
+            float end = Time.time + duration;
+            while (Time.time < end)
             {
                 if (player.Paused) player.SetPaused(false);
                 InputSystem.QueueStateEvent(keyboard, new KeyboardState(keys));
@@ -147,7 +154,7 @@ namespace TradeWinds
             var actor = player.OfflineActor; var ship = actor.HomeShip;
             var cargo = Array.Find(FindObjectsByType<PickableItem>(FindObjectsSortMode.None), item => item.Id == 0);
             var holdCargo = Array.Find(FindObjectsByType<PickableItem>(FindObjectsSortMode.None), item => item.Id == 2);
-            var ladder = FindFirstObjectByType<LadderInteraction>();
+            var ladder = Array.Find(FindObjectsByType<LadderInteraction>(FindObjectsSortMode.None), value => !value.IsRescueRope);
             yield return Keys(1.2f);
             Check(actor.Platform == ship && actor.transform.parent == ship.transform, "Player attaches to the ship");
             Vector3 worldBefore = actor.transform.position; actor.Detach();
@@ -202,6 +209,101 @@ namespace TradeWinds
             systemResults.AppendLine((passed ? "PASS " : "FAIL ") + name);
         }
 
+        private IEnumerator RunWater()
+        {
+            var actor = player.OfflineActor;
+            var cargo = Array.Find(FindObjectsByType<PickableItem>(FindObjectsSortMode.None), item => item.Id == 0);
+            var rope = Array.Find(FindObjectsByType<LadderInteraction>(FindObjectsSortMode.None), value => value.IsRescueRope);
+            yield return Keys(0.5f);
+            actor.Controller.enabled = false; actor.Detach(); actor.transform.position = new Vector3(12, 2, -5); actor.Controller.enabled = true;
+            yield return Keys(1.5f);
+            Check(actor.Swimming && actor.Platform == null, "Water entry enables swimming and detaches player");
+            float y = actor.transform.position.y;
+            yield return Keys(1, Key.LeftShift);
+            Check(actor.transform.position.y < y - 0.8f, "Shift swims down without gravity: " + y + " -> " + actor.transform.position.y);
+            yield return Keys(0.2f);
+            Check(FindFirstObjectByType<VoyageFeedback>().Underwater, "Camera below surface enables underwater feedback");
+            y = actor.transform.position.y;
+            yield return Keys(0.8f, Key.Space);
+            Check(actor.transform.position.y > y + 0.7f, "Held Space swims up");
+            yield return Keys(2.5f);
+            Check(actor.transform.position.y > -1.5f && actor.transform.position.y < 0, "Passive ascent stabilizes near surface");
+            cargo.Body.position = new Vector3(14, 3, -5); cargo.Body.linearVelocity = Vector3.down * 4;
+            yield return Keys(4);
+            Check(cargo.State == CargoState.Floating && cargo.Body.position.y > -1 && cargo.Body.position.y < 0, "Crate floats near water surface");
+            Vector3 before = cargo.Body.position;
+            yield return Keys(2);
+            Check(Vector2.Distance(new Vector2(before.x, before.z), new Vector2(cargo.Body.position.x, cargo.Body.position.z)) > 0.07f, "Current drifts floating cargo");
+            cargo.Body.position = new Vector3(14, -51, -5);
+            yield return Keys(0.3f);
+            Check(cargo.Body.position.y > 1, "KillZone rescues cargo to deck");
+            actor.Controller.enabled = false; actor.transform.position = new Vector3(12, -51, -5); actor.Controller.enabled = true;
+            yield return Keys(0.3f);
+            Check(actor.Platform == actor.HomeShip && !actor.Swimming && actor.Controller.enabled, "KillZone rescues player and restores walking");
+            actor.Controller.enabled = false; actor.Detach(); actor.transform.position = rope.transform.TransformPoint(new Vector3(0.9f, -0.9f, 0)); actor.Controller.enabled = true;
+            yield return Keys(0.2f);
+            player.LookAtPoint(rope.transform.TransformPoint(new Vector3(0, 0.4f, 0)));
+            yield return Keys(0.2f); yield return Keys(0.15f, Key.E);
+            Check(actor.Climbing && actor.Ladder == rope, "E raycast grabs rescue rope from water");
+            yield return Keys(3.5f, Key.W); yield return Keys(0.3f);
+            Check(!actor.Climbing && !actor.Swimming && actor.Platform == actor.HomeShip && actor.Controller.enabled, "Rescue rope returns player to deck");
+            Check(Physics.GetIgnoreLayerCollision(LayerMask.NameToLayer("Cargo"), LayerMask.NameToLayer("Cargo")), "Cargo self-collision is disabled");
+            Check(actor.Controller.stepOffset >= 0.3f, "Controller can step over small dock seams");
+            foreach (var mesh in FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
+                if (mesh.gameObject.layer == LayerMask.NameToLayer("Island")) Check(mesh.GetComponent<Collider>() != null, "Island mesh collision: " + mesh.name);
+            yield return Capture("water-rescue-deck.png");
+            Finish((systemFailures == 0 ? "PASS" : "FAIL") + ": water failures=" + systemFailures + "\n" + systemResults);
+        }
+
+        private IEnumerator RunNetworkCargo()
+        {
+            bool host = role == "cargo-host";
+            if (host) session.StartHost(); else session.StartClient("127.0.0.1");
+            float deadline = Time.realtimeSinceStartup + 35;
+            while ((session.LastSnapshot == null || session.CrewCount < 2) && Time.realtimeSinceStartup < deadline) yield return null;
+            if (session.CrewCount < 2) { Finish("FAIL: two peers did not connect"); yield break; }
+            yield return Keys(1);
+            var item = session.CargoItems[0];
+            Check(item.GetComponent<Unity.Netcode.NetworkObject>().IsSpawned, "Cargo NetworkObject spawned on peer");
+            Check(item.GetComponent<Unity.Netcode.Components.NetworkTransform>() != null && item.GetComponent<Unity.Netcode.Components.NetworkRigidbody>() != null, "NGO transform and rigidbody installed");
+            if (host)
+            {
+                item.Body.position = new Vector3(15, 2, -5); item.Body.linearVelocity = Vector3.down * 3;
+                yield return Keys(5);
+                Check(item.State == CargoState.Floating && !item.Body.isKinematic, "Host simulates floating rigidbody");
+                item.Body.position = item.HomeShip.transform.TransformPoint(new Vector3(0, 2.65f, 5.4f));
+                item.Body.linearVelocity = item.HomeShip.GetPointVelocity(item.Body.position);
+                yield return Keys(4);
+                Check(item.State == CargoState.Secured, "Host secures floating cargo in hold");
+                yield return Keys(4);
+                item.ResetItem();
+                yield return Keys(4);
+                session.StopSession();
+                yield return Keys(1);
+                Check(!session.Active && session.CargoItems[0] != null && !session.CargoItems[0].IsReplica, "Host returns to offline cargo after shutdown");
+            }
+            else
+            {
+                bool floating = false, secured = false, released = false;
+                deadline = Time.realtimeSinceStartup + 35;
+                while (session.Active && Time.realtimeSinceStartup < deadline)
+                {
+                    if (item != null)
+                    {
+                        floating |= item.State == CargoState.Floating && item.Body.isKinematic && item.transform.position.y < 0 && item.transform.parent == null;
+                        secured |= floating && item.State == CargoState.Secured && item.Body.isKinematic && item.transform.parent == item.HomeShip.transform;
+                        released |= secured && item.State == CargoState.Loose && item.transform.parent == null;
+                    }
+                    yield return null;
+                }
+                Check(floating, "Client observes floating kinematic replica in world coordinates");
+                Check(secured, "Client observes secured cargo parented to moving ship");
+                Check(released, "Client observes release from ship back into world coordinates");
+                Check(!session.Active && session.CargoItems[0] != null && !session.CargoItems[0].IsReplica, "Disconnect restores offline cargo");
+            }
+            Finish((systemFailures == 0 ? "PASS" : "FAIL") + ": network cargo failures=" + systemFailures + "\n" + systemResults);
+        }
+
         private IEnumerator ClimbKey(Key key)
         {
             float deadline = Time.realtimeSinceStartup + 3;
@@ -220,7 +322,12 @@ namespace TradeWinds
             Debug.Log("SMOKE " + result);
             if (keyboard != null) InputSystem.RemoveDevice(keyboard);
             if (testMouse != null) InputSystem.RemoveDevice(testMouse);
-            Application.Quit(result.StartsWith("PASS") ? 0 : 1);
+            int exitCode = result.StartsWith("PASS") ? 0 : 1;
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.Exit(exitCode);
+#else
+            Application.Quit(exitCode);
+#endif
         }
     }
 }

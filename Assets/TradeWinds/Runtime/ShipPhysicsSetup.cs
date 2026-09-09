@@ -39,12 +39,15 @@ namespace TradeWinds
                 foreach (int side in new[] { -1, 1 }) MakeBox("Pier post", world, new Vector3(side * 2.2f, -0.2f, -10 - i * 1.6f), new Vector3(0.3f, 2.2f, 0.3f), material, new Color(0.3f, 0.21f, 0.12f), true);
 
             var items = new List<PickableItem>();
-            var first = existingCrate.gameObject.AddComponent<PickableItem>();
+            var prefab = Resources.Load<GameObject>("NetworkCargo");
+            if (prefab == null) throw new System.InvalidOperationException("NetworkCargo prefab is missing. Run Trade Winds > Prepare cargo prefab.");
+            var first = Object.Instantiate(prefab, existingCrate.position, existingCrate.rotation).GetComponent<PickableItem>();
+            existingCrate.gameObject.SetActive(false);
             first.Configure(0, ship, "Ящик припасов", 8); items.Add(first);
-            var secondObject = MakeBox("Тяжёлый ящик", ship.transform, new Vector3(-1.5f, 2.6f, -1.8f), Vector3.one * 0.8f, material, new Color(0.45f, 0.3f, 0.18f), true);
-            var second = secondObject.AddComponent<PickableItem>(); second.Configure(1, ship, "Инструменты", 25); items.Add(second);
-            var thirdObject = MakeBox("Груз в трюме", ship.transform, new Vector3(0, 2.6f, 5.4f), Vector3.one * 0.8f, material, new Color(0.55f, 0.45f, 0.22f), true);
-            var third = thirdObject.AddComponent<PickableItem>(); third.Configure(2, ship, "Торговый груз", 18); items.Add(third);
+            var second = Object.Instantiate(prefab, ship.transform.TransformPoint(new Vector3(-1.5f, 2.6f, -1.8f)), ship.transform.rotation).GetComponent<PickableItem>();
+            second.Configure(1, ship, "Инструменты", 25); items.Add(second);
+            var third = Object.Instantiate(prefab, ship.transform.TransformPoint(new Vector3(0, 2.6f, 5.4f)), ship.transform.rotation).GetComponent<PickableItem>();
+            third.Configure(2, ship, "Торговый груз", 18); items.Add(third);
             Physics.SyncTransforms();
             return items.ToArray();
         }

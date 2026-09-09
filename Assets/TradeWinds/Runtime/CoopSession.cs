@@ -11,7 +11,7 @@ namespace TradeWinds
     public struct CrewInput
     {
         public float horizontal, forward, yaw, pitch;
-        public bool sprint, jump, helm, anchor, cargo, throwItem;
+        public bool sprint, jump, helm, anchor, cargo, throwItem, swimUp;
     }
 
     [Serializable]
@@ -20,7 +20,7 @@ namespace TradeWinds
         public ulong id;
         public Vector3 position;
         public float yaw;
-        public bool atHelm, aboard, climbing, grounded;
+        public bool atHelm, aboard, climbing, grounded, swimming;
     }
 
     [Serializable]
@@ -56,6 +56,8 @@ namespace TradeWinds
         private ShipController ship;
         private DeckPlayer player;
         private PickableItem[] items;
+        private PickableItem[] offlineItems;
+        public PickableItem[] CargoItems { get { return items; } }
         private Material crewMaterial;
         private CrewInput pending;
         private float nextSend;
@@ -74,6 +76,7 @@ namespace TradeWinds
         public void Initialize(ShipController controller, DeckPlayer deckPlayer, PickableItem[] cargo, Material material)
         {
             ship = controller; player = deckPlayer; items = cargo; crewMaterial = material;
+            offlineItems = (PickableItem[])items.Clone();
             Application.runInBackground = true;
             player.Session = this;
             offlineAvatar = new GameObject("Матрос · одиночная игра").AddComponent<SailorAvatar>();
@@ -86,8 +89,9 @@ namespace TradeWinds
             network.NetworkConfig.NetworkTransport = transport;
             network.NetworkConfig.EnableSceneManagement = false;
             network.NetworkConfig.ConnectionApproval = true;
-            network.NetworkConfig.ProtocolVersion = 3;
+            network.NetworkConfig.ProtocolVersion = 4;
             network.NetworkConfig.TickRate = 20;
+            network.AddNetworkPrefab(Resources.Load<GameObject>("NetworkCargo"));
             network.ConnectionApprovalCallback = Approve;
             network.OnClientConnectedCallback += Connected;
             network.OnClientDisconnectCallback += Disconnected;
@@ -100,6 +104,11 @@ namespace TradeWinds
             PrepareSession();
             foreach (var item in items) item.SetReplica(false);
             if (!network.StartHost()) { ReturnOffline(); Status = "Не удалось создать игру: порт 7777 занят?"; return; }
+            foreach (var item in items)
+            {
+                item.GetComponent<CargoReplication>().PrepareSpawn();
+                item.GetComponent<NetworkObject>().Spawn();
+            }
             RegisterMessages();
             Status = "Хост открыт • порт 7777 • до 4 игроков";
             player.SetPaused(false);
@@ -113,6 +122,7 @@ namespace TradeWinds
             transport.SetConnectionData(address.Trim(), 7777);
             PrepareSession();
             foreach (var item in items) item.SetReplica(true);
+            foreach (var item in offlineItems) item.gameObject.SetActive(false);
             connecting = true;
             connectionDeadline = Time.unscaledTime + 12;
             if (!network.StartClient()) { connecting = false; ReturnOffline(); Status = "Не удалось подключиться."; return; }
@@ -179,6 +189,8 @@ namespace TradeWinds
         public void StopSession()
         {
             connecting = false;
+            if (IsHost) foreach (var item in items)
+                if (item != null && item.GetComponent<NetworkObject>().IsSpawned) item.GetComponent<NetworkObject>().Despawn(false);
             network.Shutdown();
             ReturnOffline();
             Status = "Сетевая игра закрыта. Можно создать новую.";
@@ -186,6 +198,11 @@ namespace TradeWinds
 
         private void ReturnOffline()
         {
+            for (int i = 0; i < items.Length; i++)
+            {
+                items[i] = offlineItems[i];
+                if (items[i] != null) items[i].gameObject.SetActive(true);
+            }
             foreach (var avatar in avatars.Values) if (avatar != null) Destroy(avatar.gameObject);
             avatars.Clear(); ClearSailors(); carrier = -1; pending = new CrewInput();
             foreach (var item in items) item.SetReplica(false);
@@ -198,6 +215,7 @@ namespace TradeWinds
         {
             pending.horizontal = input.horizontal; pending.forward = input.forward;
             pending.yaw = input.yaw; pending.pitch = input.pitch; pending.sprint = input.sprint;
+            pending.swimUp = input.swimUp;
             pending.jump |= input.jump; pending.helm |= input.helm;
             pending.anchor |= input.anchor; pending.cargo |= input.cargo;
             pending.throwItem |= input.throwItem;
@@ -222,7 +240,7 @@ namespace TradeWinds
                     ShipActor actor = pair.Value.actor;
                     bool aboard = actor.Platform != null;
                     poses[index++] = new CrewPose { id = pair.Key, position = aboard ? ship.transform.InverseTransformPoint(actor.transform.position) : actor.transform.position,
-                        yaw = pair.Value.input.yaw, atHelm = actor.AtHelm, aboard = aboard, climbing = actor.Climbing, grounded = actor.Grounded };
+                        yaw = pair.Value.input.yaw, atHelm = actor.AtHelm, aboard = aboard, climbing = actor.Climbing, grounded = actor.Grounded, swimming = actor.Swimming };
                 }
                 var cargoPoses = new CargoPose[items.Length];
                 for (int i = 0; i < items.Length; i++) cargoPoses[i] = items[i].Capture();
@@ -301,8 +319,7 @@ namespace TradeWinds
         {
             LastSnapshot = snapshot;
             cargoPosition = snapshot.cargo; carrier = snapshot.carrier;
-            if (!IsHost) foreach (CargoPose cargo in snapshot.items)
-                if (cargo.id >= 0 && cargo.id < items.Length) items[cargo.id].Apply(cargo);
+            // Cargo motion and attachment state are owned by NGO components, not this snapshot.
             visibleIds.Clear();
             foreach (CrewPose pose in snapshot.crew)
             {
@@ -328,6 +345,16 @@ namespace TradeWinds
         }
 
         public void ResetCargo() { foreach (var item in items) item.ResetItem(); }
+
+        public void RegisterCargo(int id, PickableItem item)
+        {
+            if (id < 0 || id >= items.Length) throw new InvalidOperationException("Invalid network cargo id.");
+            var source = offlineItems[id];
+            Vector3 position = item.transform.position; Quaternion rotation = item.transform.rotation;
+            item.Configure(id, ship, source.ItemName, source.Weight);
+            item.Body.position = position; item.Body.rotation = rotation;
+            items[id] = item;
+        }
 
         private void ClearSailors()
         {
@@ -359,7 +386,7 @@ namespace TradeWinds
                 if (GUI.Button(new Rect(932, 355, 300, 40), "ПОДКЛЮЧИТЬСЯ")) StartClient();
             }
             else if (GUI.Button(new Rect(932, 260, 300, 45), "ОТКЛЮЧИТЬСЯ")) StopSession();
-            GUI.Label(new Rect(932, 408, 300, 40), "Порт 7777 • Steam-лобби ещё нет");
+            GUI.Label(new Rect(932, 408, 300, 110), Status);
         }
 
         private static bool Finite(float value) { return !float.IsNaN(value) && !float.IsInfinity(value); }

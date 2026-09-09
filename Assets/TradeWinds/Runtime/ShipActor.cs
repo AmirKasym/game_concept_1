@@ -2,6 +2,7 @@ using UnityEngine;
 
 namespace TradeWinds
 {
+    public enum MovementState { WALKING, SWIMMING, CLIMBING }
     [RequireComponent(typeof(CharacterController), typeof(PlayerInteraction))]
     public sealed class ShipActor : MonoBehaviour
     {
@@ -16,6 +17,8 @@ namespace TradeWinds
         public bool Grounded { get { return Controller != null && Controller.isGrounded; } }
         public Vector3 Velocity { get; private set; }
         public ulong OwnerId { get; private set; }
+        public MovementState MovementState { get; private set; }
+        public bool Swimming { get { return MovementState == MovementState.SWIMMING; } }
         private float verticalSpeed;
         private float jumpQueuedUntil = -1;
 
@@ -25,8 +28,8 @@ namespace TradeWinds
             Controller = GetComponent<CharacterController>();
             Controller.height = 1.8f; Controller.radius = 0.28f;
             Controller.center = Vector3.up * 0.9f; Controller.skinWidth = 0.025f;
-            Controller.stepOffset = 0.22f; Controller.slopeLimit = 55;
-            gameObject.layer = 2;
+            Controller.stepOffset = 0.35f; Controller.slopeLimit = 55;
+            gameObject.layer = LayerMask.NameToLayer("Player");
             Interaction = GetComponent<PlayerInteraction>(); Interaction.Initialize(this);
             Respawn(deckPosition);
         }
@@ -47,6 +50,8 @@ namespace TradeWinds
 
         public void Step(CrewInput input, float dt)
         {
+            if (transform.position.y < -50) { Rescue(); return; }
+            if (!Climbing) SetSwimming(transform.position.y < -0.15f && !Grounded && Platform == null);
             Interaction.SetAim(input.yaw, input.pitch);
             if (input.jump) jumpQueuedUntil = Time.time + 0.12f;
             if (Climbing)
@@ -58,8 +63,7 @@ namespace TradeWinds
             if (input.helm || input.cargo)
             {
                 if (AtHelm) HomeShip.ReleaseHelm(this);
-                else if (!Interaction.TryInteract() && NearHelm && Interaction.HeldItem == null)
-                    HomeShip.TryTakeHelm(this);
+                else Interaction.TryInteract();
             }
             if (Climbing) return;
             if (input.jump && AtHelm) HomeShip.ReleaseHelm(this);
@@ -71,6 +75,15 @@ namespace TradeWinds
                 return;
             }
             Vector3 direction = Quaternion.Euler(0, input.yaw, 0) * Vector3.ClampMagnitude(new Vector3(input.horizontal, 0, input.forward), 1);
+            if (Swimming)
+            {
+                float lift = input.swimUp ? 2 : input.sprint ? -2 : Mathf.Clamp((-0.9f - transform.position.y) * 1.5f, -0.6f, 0.7f);
+                Vector3 start = transform.position;
+                Controller.Move((direction * 1.8f * Interaction.SpeedMultiplier + Vector3.up * lift) * dt);
+                Velocity = (transform.position - start) / dt;
+                transform.rotation = Quaternion.Euler(0, input.yaw, 0);
+                return;
+            }
             float speed = (input.sprint ? 4.2f : 2.7f) * Interaction.SpeedMultiplier;
             if (Grounded && verticalSpeed < 0) verticalSpeed = -2;
             if (Grounded && Time.time < jumpQueuedUntil) { verticalSpeed = 6; jumpQueuedUntil = -1; }
@@ -79,12 +92,27 @@ namespace TradeWinds
             Controller.Move((direction * speed + Vector3.up * verticalSpeed) * dt);
             Velocity = (transform.position - before) / dt;
             transform.rotation = Quaternion.Euler(0, input.yaw, 0);
-            if (transform.position.y < -10) { Interaction.Release(false); Respawn(new Vector3(1.5f, 2.2f, -4.6f)); }
+        }
+
+        public void SetSwimming(bool swimming)
+        {
+            if (Climbing || Swimming == swimming) return;
+            MovementState = swimming ? MovementState.SWIMMING : MovementState.WALKING;
+            verticalSpeed = 0; jumpQueuedUntil = -1;
+            if (swimming) Detach();
+        }
+
+        public void Rescue()
+        {
+            Interaction.Release(false);
+            HomeShip.ReleaseHelm(this);
+            Respawn(new Vector3(1.5f, 2.2f, -4.6f));
         }
 
         public void BeginClimb(LadderInteraction ladder)
         {
             HomeShip.ReleaseHelm(this);
+            MovementState = MovementState.CLIMBING;
             Ladder = ladder; Controller.enabled = false; verticalSpeed = 0; Velocity = Vector3.zero;
             if (ladder.Ship != null) Attach(ladder.Ship);
             transform.SetParent(ladder.transform, true);
@@ -93,6 +121,7 @@ namespace TradeWinds
         public void EndClimb(Vector3 worldExit, ShipController platform)
         {
             Ladder = null;
+            MovementState = MovementState.WALKING;
             if (platform != null) { Platform = null; Attach(platform); } else Detach();
             transform.position = worldExit;
             verticalSpeed = 0; Controller.enabled = true;
@@ -101,6 +130,8 @@ namespace TradeWinds
         public void Respawn(Vector3 deckPosition)
         {
             if (HomeShip == null) return;
+            HomeShip.ReleaseHelm(this);
+            MovementState = MovementState.WALKING; jumpQueuedUntil = -1;
             Controller.enabled = false; Ladder = null; Platform = null; Attach(HomeShip);
             transform.localPosition = deckPosition; transform.localRotation = Quaternion.identity;
             verticalSpeed = 0; Velocity = Vector3.zero; Controller.enabled = true;

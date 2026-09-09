@@ -10,6 +10,12 @@ namespace TradeWinds
         [SerializeField] private Vector3 topExit = new Vector3(0, 2.2f, 1.8f);
         [SerializeField] private Vector3 bottomExit = new Vector3(0, 0.55f, -1.5f);
         public ShipController Ship { get { return ship; } }
+        public bool IsRescueRope { get; private set; }
+        public void ConfigureRescue(ShipController owner)
+        {
+            Configure(owner); IsRescueRope = true; bottomY = -1.8f; topY = 3.5f;
+            topExit = new Vector3(-1.5f, 3.5f, 0); bottomExit = new Vector3(0.7f, -1, 0);
+        }
         private void Awake() { Configure(ship != null ? ship : GetComponentInParent<ShipController>()); }
         public void Configure(ShipController owner) { ship = owner; GetComponent<BoxCollider>().isTrigger = true; }
 
