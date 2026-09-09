@@ -27,7 +27,9 @@ namespace TradeWinds
             Application.targetFrameRate = 60;
             Time.fixedDeltaTime = 0.02f;
             PickableItem[] cargo = ShipPhysicsSetup.Install(ship, transform, sceneCargo, crewMaterial);
+            EnvironmentSetup.Install(transform, ship, crewMaterial);
             scenePlayer.Initialize(ship, sceneCamera);
+            gameObject.AddComponent<VoyageFeedback>().Initialize(sceneCamera, scenePlayer, cargo);
             gameObject.AddComponent<CoopSession>().Initialize(ship, scenePlayer, cargo, crewMaterial);
             gameObject.AddComponent<PrototypeHud>().Initialize(ship, scenePlayer);
             Debug.Log("First Voyage ready: ship, ocean, three islands, walking, jumping and co-op lobby.");

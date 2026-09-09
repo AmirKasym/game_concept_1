@@ -20,6 +20,9 @@ namespace TradeWinds
         public Vector3 WorldPosition { get { return Session != null && Session.Active ? transform.position : OfflineActor.transform.position; } }
         public Vector3 DeckPosition { get { return ship.transform.InverseTransformPoint(WorldPosition); } }
         public float LookYaw { get { return yaw; } }
+        public Camera View { get { return view; } }
+        public bool IsGrounded { get { return Session != null && Session.Active ? networkGrounded : OfflineActor != null && OfflineActor.Grounded; } }
+        private bool networkGrounded;
         private ShipController ship;
         private Camera view;
         private float yaw, pitch = 8, previousHeading;
@@ -55,6 +58,7 @@ namespace TradeWinds
                 horizontal = (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1 : 0) - (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? 1 : 0),
                 forward = (keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1 : 0) - (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? 1 : 0),
                 yaw = yaw, pitch = pitch, sprint = keyboard.leftShiftKey.isPressed,
+                swimUp = keyboard.spaceKey.isPressed,
                 jump = keyboard.spaceKey.wasPressedThisFrame, helm = keyboard.eKey.wasPressedThisFrame,
                 anchor = keyboard.bKey.wasPressedThisFrame, cargo = keyboard.fKey.wasPressedThisFrame,
                 throwItem = mouse != null && mouse.leftButton.wasPressedThisFrame
@@ -75,6 +79,7 @@ namespace TradeWinds
         public void ApplyNetworkPose(CrewPose pose)
         {
             networkAtHelm = pose.atHelm; networkClimbing = pose.climbing; networkAboard = pose.aboard;
+            networkGrounded = pose.grounded;
             Transform parent = pose.aboard ? ship.transform : null;
             if (transform.parent != parent) transform.SetParent(parent, true);
             if (pose.aboard) transform.localPosition = pose.position; else transform.position = pose.position;

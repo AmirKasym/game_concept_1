@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace TradeWinds
 {
-    public enum CargoState { Loose, Carried, Secured }
+    public enum CargoState { Loose, Carried, Secured, Floating }
     [Serializable]
     public struct CargoPose
     {
@@ -29,13 +29,24 @@ namespace TradeWinds
         public bool IsReplica { get; private set; }
         public int Id { get; private set; }
         private ShipController homeShip;
+        public ShipController HomeShip { get { return homeShip; } }
         private Vector3 initialLocal;
         private Collider ownCollider;
         private float secureAfter;
+        private float nextImpact;
+        public event Action<Vector3, float> Impact;
+        private void OnCollisionEnter(Collision collision)
+        {
+            float speed = collision.relativeVelocity.magnitude;
+            if (IsReplica || speed < 1 || Time.time < nextImpact) return;
+            nextImpact = Time.time + 0.2f;
+            Impact?.Invoke(transform.position, speed);
+        }
 
         private void Awake()
         {
             Body = GetComponent<Rigidbody>(); ownCollider = GetComponent<Collider>();
+            gameObject.layer = LayerMask.NameToLayer("Cargo");
             weight = Mathf.Max(0.1f, weight); Body.mass = weight;
         }
 
@@ -102,7 +113,13 @@ namespace TradeWinds
                 Body.linearVelocity = Vector3.ClampMagnitude(velocity, 10);
                 Body.MoveRotation(Quaternion.Slerp(Body.rotation, Carrier.HoldPoint.rotation, 0.25f));
             }
-            else if (homeShip != null && transform.position.y < -15) ResetItem();
+            else if (homeShip != null && transform.position.y < -50) ResetItem();
+        }
+
+        public void SetFloating(bool floating)
+        {
+            if (IsReplica || isCarried || State == CargoState.Secured) return;
+            State = floating ? CargoState.Floating : CargoState.Loose;
         }
 
         public void SetReplica(bool replica)
@@ -129,6 +146,14 @@ namespace TradeWinds
             if (transform.parent != parent) transform.SetParent(parent, true);
             if (parent != null) { transform.localPosition = pose.position; transform.localRotation = pose.rotation; }
             else { Body.position = pose.position; Body.rotation = pose.rotation; }
+        }
+
+        public void ApplyNetworkAttachment(CargoState state)
+        {
+            if (!IsReplica) return;
+            State = state;
+            Transform parent = state == CargoState.Secured ? homeShip.transform : null;
+            if (transform.parent != parent) transform.SetParent(parent, true);
         }
 
         public void ResetItem()

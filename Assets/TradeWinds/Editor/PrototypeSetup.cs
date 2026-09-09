@@ -27,6 +27,7 @@ namespace TradeWinds.Editor
             }
             if (!File.Exists(ScenePath)) Prepare();
             else BakeScene();
+            CargoPrefabSetup.Prepare();
             EditorSceneManager.playModeStartScene = AssetDatabase.LoadAssetAtPath<SceneAsset>(ScenePath);
         }
 
@@ -35,6 +36,7 @@ namespace TradeWinds.Editor
         {
             if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Exit Play Mode before preparing assets.");
             Directory.CreateDirectory(SettingsPath);
+            CargoPrefabSetup.Prepare();
             Directory.CreateDirectory("Assets/TradeWinds/Scenes");
             AssetDatabase.Refresh();
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(SettingsPath + "/CoastalPipeline.asset");

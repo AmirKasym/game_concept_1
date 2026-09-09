@@ -53,7 +53,7 @@ namespace TradeWinds
         public bool TryTakeHelm(ShipActor actor)
         {
             if (Helmsman != null || actor.Interaction.HeldItem != null || !actor.NearHelm) return false;
-            Helmsman = actor; actor.Respawn(DeckPlayer.HelmPosition);
+            actor.Respawn(DeckPlayer.HelmPosition); Helmsman = actor;
             return true;
         }
 
