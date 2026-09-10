@@ -1,0 +1,5 @@
+PASS Two baked completed islands; 236 solid box/convex colliders; no runtime duplicate deployer; main CoastalSea water preserved.
+Lighthouse island bounds: Center: (-84.33, 14.60, 68.07), Extents: (47.91, 17.60, 34.07)
+Market harbor bounds: Center: (84.05, 7.31, 70.95), Extents: (36.31, 9.71, 28.28)
+PASS Windows x86_64 build.
+PASS Final Windows image inspected: both completed islands, sky and updated water render correctly. Scene asset references resolved in Assets or installed URP package.

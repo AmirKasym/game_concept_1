@@ -1,0 +1,16 @@
+PASS: systems failures=0
+PASS Player attaches to the ship
+PASS Detach preserves world position
+PASS Attach preserves world position
+PASS Loose cargo automatically secures in hold
+PASS E raycast picks up a dynamic item
+PASS Weight reduces walking speed
+PASS Weighted movement is applied to the controller
+PASS E releases and throws with gravity and impulse
+PASS Left mouse button throws the carried item
+PASS Secured cargo can be picked up again
+PASS Dropped cargo settles and reattaches to the hold
+PASS E enters climbing mode
+PASS Ladder bottom restores world controller on shore
+PASS Player lands on the pier
+PASS Ladder top restores ship parenting

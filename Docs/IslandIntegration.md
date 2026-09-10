@@ -34,7 +34,7 @@ These colliders represent terrain, structures, docks and walkways. Decorative fo
 
 `Shaders/LowPolyIslandWater.shader` is an opaque URP shader with two vertex waves and a flat normal derived per triangle in the fragment stage. It uses no texture samples, depth textures, transparency, reflection cameras or per-frame C# updates. The generated 64 × 64 grid has 8,192 triangles and no collider. All renderers share the assigned material; `.material` instantiation is avoided.
 
-The shader respects the water mesh's world height and exposes colors, amplitude, wavelength scale and speed. These are visual waves, separate from the existing ship simulation's buoyancy. An externally supplied water mesh should already have sufficient subdivisions and no unwanted solid collider. The existing CoastalSea shader and FirstVoyage water are not overwritten automatically.
+The shader respects the water mesh's world height and exposes colors, amplitude, wavelength scale, speed and facet contrast. These are visual waves, separate from the existing ship simulation's buoyancy. An externally supplied water mesh should already have sufficient subdivisions and no unwanted solid collider. The existing CoastalSea shader and FirstVoyage water are not overwritten automatically.
 
 ## Authoring and validation
 
@@ -43,3 +43,5 @@ The shader respects the water mesh's world height and exposes colors, amplitude,
 The validation entry point is `TradeWinds.Editor.IslandIntegrationSetup.PrepareAndValidate`, intended for an isolated batch Editor. It verifies duplication prevention, active convex/box physics, static roots, material assignment, shader compilation, cleanup/redeployment, and CharacterController traversal of nine lighthouse routes and four market stair ramps. See `Docs/Art/IslandIntegrationValidation.txt` for the actual results. A Unity-rendered overview is saved as `Docs/Art/IslandIntegration.png`.
 
 These static islands should be deployed once per scene on each peer with identical placement settings. Do not also spawn a second networked copy. Network player ownership, ship navigation, purchases and dynamic cargo registration remain responsibilities of the existing gameplay systems. Target-device frame rates and a four-computer session are not certified by the Editor checks.
+
+Final validation (2026-09-10): `ValidateAndBuild` passed in Unity 6000.6.0f1, with 236 active colliders (11 boxes), all 13 traversal routes, lifecycle/reference checks and water shader compilation passing. The Windows x86_64 Development player launched and deployed both islands and water through `Start`; its captured image was visually inspected for the corrected market palette and faceted water. See `Docs/Art/IslandIntegrationRuntimeValidation.txt`. The preview executable is under `TestResults/ValidationProject/Builds/IslandIntegration/IslandIntegration.exe`. This validates the deployment preview; multiplayer and target-device performance were not tested.
