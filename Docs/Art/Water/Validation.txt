@@ -1,0 +1,4 @@
+PASS FirstVoyage Ocean references CoastalSea; transparent queue 3000; one pass; shader import has no errors.
+PASS Windows x86_64 Development build.
+PASS FirstVoyage water rendered with supported transparent shader in Windows D3D11; captured gameplay, overview, submerged marker, opaque comparison and later wave frame. Visual inspection required.
+Visual review: submerged marker visible at default opacity and hidden at opacity 1; wave facet pattern changes between captures; broad sun highlight present. GPU frame-time benchmark not run.
