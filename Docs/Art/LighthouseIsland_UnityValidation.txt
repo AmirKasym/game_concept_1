@@ -1,0 +1,84 @@
+PASS Buildings scale 1,1,1
+PASS Buildings atlas/UV present
+PASS Buildings_Lighthouse scale 1,1,1
+PASS Buildings_Lighthouse atlas/UV present
+PASS COL_Buildings scale 1,1,1
+PASS COL_Buildings_Lighthouse scale 1,1,1
+PASS COL_CollisionOnly scale 1,1,1
+PASS COL_Docks scale 1,1,1
+PASS COL_Paths_Bridges scale 1,1,1
+PASS COL_Paths_EastAscent scale 1,1,1
+PASS COL_Paths_Harbour scale 1,1,1
+PASS COL_Paths_Headlands scale 1,1,1
+PASS COL_Paths_Summit scale 1,1,1
+PASS COL_Paths_Upper scale 1,1,1
+PASS COL_Paths_Village scale 1,1,1
+PASS COL_Paths_WestAscent scale 1,1,1
+PASS COL_Terrain_EastHeadland scale 1,1,1
+PASS COL_Terrain_LighthouseHill scale 1,1,1
+PASS COL_Terrain_LowVillage scale 1,1,1
+PASS COL_Terrain_RampBanks scale 1,1,1
+PASS COL_Terrain_UpperVillage scale 1,1,1
+PASS COL_Terrain_WestHeadland scale 1,1,1
+PASS Docks scale 1,1,1
+PASS Docks atlas/UV present
+PASS Paths_Bridges scale 1,1,1
+PASS Paths_Bridges atlas/UV present
+PASS Paths_EastAscent scale 1,1,1
+PASS Paths_EastAscent atlas/UV present
+PASS Paths_Harbour scale 1,1,1
+PASS Paths_Harbour atlas/UV present
+PASS Paths_Headlands scale 1,1,1
+PASS Paths_Headlands atlas/UV present
+PASS Paths_Summit scale 1,1,1
+PASS Paths_Summit atlas/UV present
+PASS Paths_Upper scale 1,1,1
+PASS Paths_Upper atlas/UV present
+PASS Paths_Village scale 1,1,1
+PASS Paths_Village atlas/UV present
+PASS Paths_WestAscent scale 1,1,1
+PASS Paths_WestAscent atlas/UV present
+PASS Props scale 1,1,1
+PASS Props atlas/UV present
+PASS Props_Boats scale 1,1,1
+PASS Props_Boats atlas/UV present
+PASS Props_Rocks scale 1,1,1
+PASS Props_Rocks atlas/UV present
+PASS Terrain_EastHeadland scale 1,1,1
+PASS Terrain_EastHeadland atlas/UV present
+PASS Terrain_LighthouseHill scale 1,1,1
+PASS Terrain_LighthouseHill atlas/UV present
+PASS Terrain_LowVillage scale 1,1,1
+PASS Terrain_LowVillage atlas/UV present
+PASS Terrain_RampBanks scale 1,1,1
+PASS Terrain_RampBanks atlas/UV present
+PASS Terrain_UpperVillage scale 1,1,1
+PASS Terrain_UpperVillage atlas/UV present
+PASS Terrain_WestHeadland scale 1,1,1
+PASS Terrain_WestHeadland atlas/UV present
+PASS Vegetation scale 1,1,1
+PASS Vegetation atlas/UV present
+PASS Visual triangle budget: 30318
+PASS Collider triangle budget: 3362
+PASS Static geometry has no dynamic Rigidbody
+PASS FBX up axis is Unity +Y
+DockLanding Unity: (1.00, 1.25, -34.00)
+PASS Harbour promenade continuous floor/headroom; gaps=0, blocked=0
+PASS Harbour promenade traversed by 1.8 m CharacterController; end=(21.89, 1.28, -11.07)
+PASS Village lane continuous floor/headroom; gaps=0, blocked=0
+PASS Village lane traversed by 1.8 m CharacterController; end=(22.85, 1.29, -8.97)
+PASS West ascent continuous floor/headroom; gaps=0, blocked=0
+PASS West ascent traversed by 1.8 m CharacterController; end=(-17.13, 6.28, 9.92)
+PASS East ascent continuous floor/headroom; gaps=0, blocked=0
+PASS East ascent traversed by 1.8 m CharacterController; end=(17.13, 6.28, 9.92)
+PASS Upper terrace continuous floor/headroom; gaps=0, blocked=0
+PASS Upper terrace traversed by 1.8 m CharacterController; end=(20.00, 6.28, 13.87)
+PASS Lighthouse ascent continuous floor/headroom; gaps=0, blocked=0
+PASS Lighthouse ascent traversed by 1.8 m CharacterController; end=(-2.14, 11.28, 16.06)
+PASS West stone bridge continuous floor/headroom; gaps=0, blocked=0
+PASS West stone bridge traversed by 1.8 m CharacterController; end=(-18.13, 6.27, 15.00)
+PASS East high bridge continuous floor/headroom; gaps=0, blocked=0
+PASS East high bridge traversed by 1.8 m CharacterController; end=(35.87, 4.10, 18.00)
+PASS East harbour bridge continuous floor/headroom; gaps=0, blocked=0
+PASS East harbour bridge traversed by 1.8 m CharacterController; end=(35.88, 4.09, -13.00)
+RESULT failures=0
