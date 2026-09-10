@@ -1,0 +1,3 @@
+PASS Ship can move through starting water.
+PASS Lighthouse island: hull stops at solid shore; seaward approach remains open.
+PASS Market harbor: hull stops at solid shore; seaward approach remains open.

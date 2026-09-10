@@ -17,6 +17,8 @@ namespace TradeWinds
         [SerializeField] private Transform wheel;
         [SerializeField] private Transform sail;
         [SerializeField] private Vector3[] islands;
+        [SerializeField] private Transform[] detailedIslandRoots = System.Array.Empty<Transform>();
+        private readonly Collider[] shoreHits = new Collider[64];
 
         private void Awake() { State = new ShipSimulation(); }
 
@@ -34,6 +36,11 @@ namespace TradeWinds
             if (Paused) { UpdatePresentation(); Physics.SyncTransforms(); return; }
             double x = State.X, z = State.Z;
             State.Step(Time.fixedDeltaTime, Steering, SailChange);
+            if (TouchesDetailedShore())
+            {
+                State.StopAtObstacle(x, z);
+                Notice = "Берег или причал впереди. Разверните корабль для подхода.";
+            }
             foreach (Vector3 island in islands)
             {
                 var delta = new Vector2((float)State.X - island.x, (float)State.Z - island.z);
@@ -48,6 +55,20 @@ namespace TradeWinds
                 Notice = "Край тестового моря. Развернитесь в сторону маяка.";
             UpdatePresentation();
             Physics.SyncTransforms();
+        }
+
+        private bool TouchesDetailedShore()
+        {
+            if (detailedIslandRoots == null || detailedIslandRoots.Length == 0) return false;
+            // Check the hull at the proposed pose. Ignore crew, cargo and the ship itself.
+            var center = new Vector3((float)State.X, 1, (float)State.Z);
+            int count = Physics.OverlapBoxNonAlloc(center, new Vector3(2.9f, .85f, 7.2f), shoreHits,
+                Quaternion.Euler(0, (float)State.Heading, 0), Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+                foreach (var root in detailedIslandRoots)
+                    if (root != null && shoreHits[i].transform.IsChildOf(root)) return true;
+            // A saturated query cannot establish that the next pose is clear.
+            return count == shoreHits.Length;
         }
 
         public bool TryTakeHelm(ShipActor actor)
