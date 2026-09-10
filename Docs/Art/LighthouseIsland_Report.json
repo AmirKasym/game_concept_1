@@ -1,0 +1,675 @@
+{
+  "name": "LighthouseIsland",
+  "seed": 1703,
+  "atlas": "1024x1024 / 16 tiles / one opaque material",
+  "visual_triangles": 30318,
+  "collision_triangles": 3362,
+  "meshes": {
+    "Terrain_LowVillage": {
+      "triangles": 284,
+      "vertices": 144
+    },
+    "Terrain_WestHeadland": {
+      "triangles": 188,
+      "vertices": 96
+    },
+    "Terrain_EastHeadland": {
+      "triangles": 212,
+      "vertices": 108
+    },
+    "Terrain_UpperVillage": {
+      "triangles": 236,
+      "vertices": 120
+    },
+    "Terrain_LighthouseHill": {
+      "triangles": 164,
+      "vertices": 84
+    },
+    "Paths_Harbour": {
+      "triangles": 58,
+      "vertices": 35
+    },
+    "Paths_Village": {
+      "triangles": 44,
+      "vertices": 25
+    },
+    "Paths_WestAscent": {
+      "triangles": 34,
+      "vertices": 20
+    },
+    "Paths_EastAscent": {
+      "triangles": 34,
+      "vertices": 20
+    },
+    "Paths_Upper": {
+      "triangles": 54,
+      "vertices": 30
+    },
+    "Paths_Summit": {
+      "triangles": 74,
+      "vertices": 40
+    },
+    "Paths_Bridges": {
+      "triangles": 492,
+      "vertices": 255
+    },
+    "Buildings": {
+      "triangles": 5958,
+      "vertices": 4047
+    },
+    "Paths_Headlands": {
+      "triangles": 78,
+      "vertices": 45
+    },
+    "Terrain_RampBanks": {
+      "triangles": 142,
+      "vertices": 80
+    },
+    "Props": {
+      "triangles": 6148,
+      "vertices": 3660
+    },
+    "Buildings_Lighthouse": {
+      "triangles": 1056,
+      "vertices": 628
+    },
+    "Docks": {
+      "triangles": 3104,
+      "vertices": 1895
+    },
+    "Props_Boats": {
+      "triangles": 816,
+      "vertices": 520
+    },
+    "Vegetation": {
+      "triangles": 10496,
+      "vertices": 7744
+    },
+    "Props_Rocks": {
+      "triangles": 646,
+      "vertices": 357
+    },
+    "COL_Terrain_LowVillage": {
+      "triangles": 284,
+      "vertices": 144
+    },
+    "COL_Terrain_WestHeadland": {
+      "triangles": 188,
+      "vertices": 96
+    },
+    "COL_Terrain_EastHeadland": {
+      "triangles": 212,
+      "vertices": 108
+    },
+    "COL_Terrain_UpperVillage": {
+      "triangles": 236,
+      "vertices": 120
+    },
+    "COL_Terrain_LighthouseHill": {
+      "triangles": 164,
+      "vertices": 84
+    },
+    "COL_Paths_Harbour": {
+      "triangles": 58,
+      "vertices": 35
+    },
+    "COL_Paths_Village": {
+      "triangles": 44,
+      "vertices": 25
+    },
+    "COL_Paths_WestAscent": {
+      "triangles": 34,
+      "vertices": 20
+    },
+    "COL_Paths_EastAscent": {
+      "triangles": 34,
+      "vertices": 20
+    },
+    "COL_Paths_Upper": {
+      "triangles": 54,
+      "vertices": 30
+    },
+    "COL_Paths_Summit": {
+      "triangles": 74,
+      "vertices": 40
+    },
+    "COL_Paths_Bridges": {
+      "triangles": 492,
+      "vertices": 255
+    },
+    "COL_CollisionOnly": {
+      "triangles": 1056,
+      "vertices": 558
+    },
+    "COL_Paths_Headlands": {
+      "triangles": 78,
+      "vertices": 45
+    },
+    "COL_Terrain_RampBanks": {
+      "triangles": 142,
+      "vertices": 80
+    },
+    "COL_Buildings": {
+      "triangles": 144,
+      "vertices": 96
+    },
+    "COL_Buildings_Lighthouse": {
+      "triangles": 44,
+      "vertices": 24
+    },
+    "COL_Docks": {
+      "triangles": 24,
+      "vertices": 15
+    }
+  },
+  "routes_blender_xyz": {
+    "Harbour promenade": {
+      "width": 4.8,
+      "points": [
+        [
+          -23,
+          -13,
+          1.25
+        ],
+        [
+          -14,
+          -17,
+          1.25
+        ],
+        [
+          0,
+          -18,
+          1.25
+        ],
+        [
+          15,
+          -16,
+          1.25
+        ],
+        [
+          22,
+          -11,
+          1.25
+        ]
+      ],
+      "max_slope_degrees": 0
+    },
+    "Village lane": {
+      "width": 3.8,
+      "points": [
+        [
+          -23,
+          -9,
+          1.25
+        ],
+        [
+          -14,
+          -7,
+          1.25
+        ],
+        [
+          0,
+          -8,
+          1.25
+        ],
+        [
+          13,
+          -7,
+          1.25
+        ],
+        [
+          23,
+          -9,
+          1.25
+        ]
+      ],
+      "max_slope_degrees": 0
+    },
+    "West ascent": {
+      "width": 4.5,
+      "points": [
+        [
+          -23,
+          -9,
+          1.25
+        ],
+        [
+          -25,
+          -1,
+          3.8
+        ],
+        [
+          -22,
+          7,
+          6.25
+        ],
+        [
+          -17,
+          10,
+          6.25
+        ]
+      ],
+      "max_slope_degrees": 17.18
+    },
+    "East ascent": {
+      "width": 4.5,
+      "points": [
+        [
+          23,
+          -9,
+          1.25
+        ],
+        [
+          25,
+          -1,
+          3.8
+        ],
+        [
+          22,
+          7,
+          6.25
+        ],
+        [
+          17,
+          10,
+          6.25
+        ]
+      ],
+      "max_slope_degrees": 17.18
+    },
+    "Upper terrace": {
+      "width": 4.2,
+      "points": [
+        [
+          -19,
+          10,
+          6.25
+        ],
+        [
+          -12,
+          8,
+          6.25
+        ],
+        [
+          0,
+          7.5,
+          6.25
+        ],
+        [
+          13,
+          7,
+          6.25
+        ],
+        [
+          20,
+          9,
+          6.25
+        ],
+        [
+          20,
+          14,
+          6.25
+        ]
+      ],
+      "max_slope_degrees": 0
+    },
+    "Lighthouse ascent": {
+      "width": 3.8,
+      "points": [
+        [
+          14,
+          9,
+          6.25
+        ],
+        [
+          14,
+          17,
+          8
+        ],
+        [
+          11,
+          25,
+          10.2
+        ],
+        [
+          7,
+          28,
+          11.25
+        ],
+        [
+          -2,
+          26,
+          11.25
+        ],
+        [
+          -7,
+          24,
+          11.25
+        ],
+        [
+          -7,
+          18,
+          11.25
+        ],
+        [
+          -2,
+          16,
+          11.25
+        ]
+      ],
+      "max_slope_degrees": 14.44
+    },
+    "West stone bridge": {
+      "width": 4.5,
+      "points": [
+        [
+          -36.0,
+          15.0,
+          5.050000190734863
+        ],
+        [
+          -34.875,
+          15.0,
+          5.199134349822998
+        ],
+        [
+          -33.75,
+          15.0,
+          5.345419883728027
+        ],
+        [
+          -32.625,
+          15.0,
+          5.486116886138916
+        ],
+        [
+          -31.5,
+          15.0,
+          5.6187005043029785
+        ],
+        [
+          -30.375,
+          15.0,
+          5.7409586906433105
+        ],
+        [
+          -29.25,
+          15.0,
+          5.85107421875
+        ],
+        [
+          -28.125,
+          15.0,
+          5.947698593139648
+        ],
+        [
+          -27.0,
+          15.0,
+          6.03000020980835
+        ],
+        [
+          -25.875,
+          15.0,
+          6.09769868850708
+        ],
+        [
+          -24.75,
+          15.0,
+          6.151074409484863
+        ],
+        [
+          -23.625,
+          15.0,
+          6.190958499908447
+        ],
+        [
+          -22.5,
+          15.0,
+          6.218700408935547
+        ],
+        [
+          -21.375,
+          15.0,
+          6.236116886138916
+        ],
+        [
+          -20.25,
+          15.0,
+          6.245419502258301
+        ],
+        [
+          -19.125,
+          15.0,
+          6.249134540557861
+        ],
+        [
+          -18.0,
+          15.0,
+          6.25
+        ]
+      ],
+      "max_slope_degrees": 7.55
+    },
+    "East high bridge": {
+      "width": 4.5,
+      "points": [
+        [
+          18.0,
+          18.0,
+          6.25
+        ],
+        [
+          19.125,
+          18.0,
+          6.186634540557861
+        ],
+        [
+          20.25,
+          18.0,
+          6.120419502258301
+        ],
+        [
+          21.375,
+          18.0,
+          6.048616886138916
+        ],
+        [
+          22.5,
+          18.0,
+          5.968700408935547
+        ],
+        [
+          23.625,
+          18.0,
+          5.878458499908447
+        ],
+        [
+          24.75,
+          18.0,
+          5.776074409484863
+        ],
+        [
+          25.875,
+          18.0,
+          5.66019868850708
+        ],
+        [
+          27.0,
+          18.0,
+          5.53000020980835
+        ],
+        [
+          28.125,
+          18.0,
+          5.385198593139648
+        ],
+        [
+          29.25,
+          18.0,
+          5.22607421875
+        ],
+        [
+          30.375,
+          18.0,
+          5.0534586906433105
+        ],
+        [
+          31.5,
+          18.0,
+          4.8687005043029785
+        ],
+        [
+          32.625,
+          18.0,
+          4.673616886138916
+        ],
+        [
+          33.75,
+          18.0,
+          4.470419883728027
+        ],
+        [
+          34.875,
+          18.0,
+          4.261634349822998
+        ],
+        [
+          36.0,
+          18.0,
+          4.050000190734863
+        ]
+      ],
+      "max_slope_degrees": 10.65
+    },
+    "East harbour bridge": {
+      "width": 4.5,
+      "points": [
+        [
+          24.0,
+          -13.0,
+          1.25
+        ],
+        [
+          24.75,
+          -13.0,
+          1.574134349822998
+        ],
+        [
+          25.5,
+          -13.0,
+          1.895419716835022
+        ],
+        [
+          26.25,
+          -13.0,
+          2.2111167907714844
+        ],
+        [
+          27.0,
+          -13.0,
+          2.51870059967041
+        ],
+        [
+          27.75,
+          -13.0,
+          2.8159584999084473
+        ],
+        [
+          28.5,
+          -13.0,
+          3.10107421875
+        ],
+        [
+          29.25,
+          -13.0,
+          3.3726985454559326
+        ],
+        [
+          30.0,
+          -13.0,
+          3.630000114440918
+        ],
+        [
+          30.75,
+          -13.0,
+          3.8726985454559326
+        ],
+        [
+          31.5,
+          -13.0,
+          4.10107421875
+        ],
+        [
+          32.25,
+          -13.0,
+          4.315958499908447
+        ],
+        [
+          33.0,
+          -13.0,
+          4.318700790405273
+        ],
+        [
+          33.75,
+          -13.0,
+          4.261116981506348
+        ],
+        [
+          34.5,
+          -13.0,
+          4.195419788360596
+        ],
+        [
+          35.25,
+          -13.0,
+          4.124134540557861
+        ],
+        [
+          36.0,
+          -13.0,
+          4.050000190734863
+        ]
+      ],
+      "max_slope_degrees": 23.37
+    }
+  },
+  "markers_blender_xyz": {
+    "DockApproach": [
+      1,
+      -40,
+      0.0
+    ],
+    "DockLanding": [
+      1,
+      -34,
+      1.25
+    ],
+    "PlayerSpawn": [
+      1,
+      -24,
+      1.3
+    ],
+    "SeaLevel": [
+      0,
+      0,
+      0
+    ],
+    "LighthouseView": [
+      -2,
+      15,
+      11.3
+    ]
+  },
+  "export": {
+    "axis_forward": "-Z",
+    "axis_up": "Y",
+    "bake_space_transform": true,
+    "global_scale": 1
+  },
+  "notes": [
+    "Reference-inspired reconstruction; hidden sides inferred.",
+    "Buildings are exterior shells; tower interiors are not playable.",
+    "Collider meshes are separate COL_ children. Use Unity import tool to hide renderers and add static MeshColliders."
+  ],
+  "max_route_slope_degrees": 23.37
+}

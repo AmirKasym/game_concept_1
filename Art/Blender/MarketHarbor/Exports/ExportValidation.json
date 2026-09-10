@@ -1,0 +1,46 @@
+[
+  {
+    "file": "MarketHarbor.fbx",
+    "mesh_count": 21,
+    "triangles": 24984,
+    "bounds_metres_blender_xyz": [
+      72.6265,
+      56.5563,
+      19.4248
+    ],
+    "round_trip": "PASS"
+  },
+  {
+    "file": "MarketHarbor.gltf",
+    "mesh_count": 21,
+    "triangles": 24984,
+    "bounds_metres_blender_xyz": [
+      72.6265,
+      56.5563,
+      19.4248
+    ],
+    "round_trip": "PASS"
+  },
+  {
+    "file": "MarketHarbor_Collision.fbx",
+    "mesh_count": 17,
+    "triangles": 352,
+    "bounds_metres_blender_xyz": [
+      64.0,
+      54.0,
+      17.02
+    ],
+    "round_trip": "PASS"
+  },
+  {
+    "file": "MarketHarbor_Collision.gltf",
+    "mesh_count": 17,
+    "triangles": 352,
+    "bounds_metres_blender_xyz": [
+      64.0,
+      54.0,
+      17.02
+    ],
+    "round_trip": "PASS"
+  }
+]

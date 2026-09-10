@@ -1,0 +1,26 @@
+PASS Repeated Deploy creates no duplicates; two islands and water exist
+PASS Active collision uses solid BoxCollider / convex MeshCollider only
+PASS Islands remain static
+PASS All convex meshes assigned
+Colliders: 236; boxes=11
+PASS Lighthouse traversal: Harbour promenade
+PASS Lighthouse traversal: Village lane
+PASS Lighthouse traversal: West ascent
+PASS Lighthouse traversal: East ascent
+PASS Lighthouse traversal: Upper terrace
+PASS Lighthouse traversal: Lighthouse ascent
+PASS Lighthouse traversal: West stone bridge
+PASS Lighthouse traversal: East high bridge
+PASS Lighthouse traversal: East harbour bridge
+PASS Market stair ramp: (-6.00, -13.00, 1.47)
+PASS Market stair ramp: (25.00, -8.00, 1.47)
+PASS Market stair ramp: (8.00, 8.00, 4.25)
+PASS Market stair ramp: (29.00, 5.00, 1.47)
+PASS Shared stylized water material assigned; no solid water collider
+PASS Water shader compilation
+PASS Clear removes owned deployment
+PASS Deploy works after Clear
+PASS Existing water receives the assigned shared material
+PASS Clear preserves external water and restores its material
+PASS Missing references fail before any partial deployment
+RESULT failures=0

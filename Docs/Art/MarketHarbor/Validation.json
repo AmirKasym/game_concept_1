@@ -1,0 +1,14 @@
+{
+  "visual_triangles": 24984,
+  "mesh_objects_checked": 38,
+  "rerun_object_count": 42,
+  "checks": [
+    "Script runs twice without duplicate generated objects",
+    "Origin 0,0,0",
+    "Flat shading",
+    "All mesh scales 1,1,1",
+    "No zero-area polygons",
+    "Principled materials",
+    "Separate hidden collision objects"
+  ]
+}

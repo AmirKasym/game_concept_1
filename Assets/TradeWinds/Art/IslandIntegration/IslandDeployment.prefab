@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5354846689623890497
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1973229089971116879}
+  - component: {fileID: 6038229017027946022}
+  m_Layer: 0
+  m_Name: IslandDeployment
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1973229089971116879
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5354846689623890497}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6038229017027946022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5354846689623890497}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aeeb8c61eea3ed7499e7a79a1046356d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::TradeWinds.IslandSceneDeployer
+  deployOnStart: 1
+  lighthouse:
+    modelPrefab: {fileID: 3578212195261954896, guid: ccef435f1bfd80d4ea4977fc3233380b, type: 3}
+    collisionPrefab: {fileID: 919132149155446097, guid: f1ce301bf02e91d45a320fe472036411, type: 3}
+    position: {x: -85, y: 0, z: 70}
+    rotation: {x: 0, y: 0, z: 0}
+    scale: 1
+  marketHarbor:
+    modelPrefab: {fileID: 8259772907182330877, guid: 591160db774741a40a4491f3fd245c94, type: 3}
+    collisionPrefab: {fileID: 919132149155446097, guid: 1d4ab2254d0f2254ea35738d7b9d3208, type: 3}
+    position: {x: 85, y: 0, z: 70}
+    rotation: {x: 0, y: 0, z: 0}
+    scale: 1
+  islandLayer: 0
+  groundPhysicsMaterial: {fileID: 13400000, guid: c6a52c75ff0b8f84d9a63b636fb6368d, type: 2}
+  waterRenderer: {fileID: 0}
+  waterMaterial: {fileID: 2100000, guid: 5c012a4cd24ad2c4d84b268f9492ae8c, type: 2}
+  waterPosition: {x: 0, y: 0, z: 70}
+  waterSize: 420
+  waterResolution: 64
