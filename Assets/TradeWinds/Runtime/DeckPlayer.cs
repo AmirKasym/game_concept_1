@@ -17,7 +17,7 @@ namespace TradeWinds
         public float Sensitivity { get; set; } = 0.12f;
         public float CameraRock { get; set; } = 0.45f;
         public CoopSession Session { get; set; }
-        public Vector3 WorldPosition { get { return Session != null && Session.Active ? transform.position : OfflineActor.transform.position; } }
+        public Vector3 WorldPosition { get { return Session != null && Session.Active ? (Session.LocalActor != null ? Session.LocalActor.transform.position : transform.position) : OfflineActor.transform.position; } }
         public Vector3 DeckPosition { get { return ship.transform.InverseTransformPoint(WorldPosition); } }
         public float LookYaw { get { return yaw; } }
         private ShipController ship;
@@ -25,6 +25,11 @@ namespace TradeWinds
         private float yaw, pitch = 8, previousHeading;
         private bool networkAtHelm, networkClimbing, networkAboard;
         private CrewInput pending;
+        private Vector3 networkFrom, networkTarget;
+        private float networkReceived;
+        private bool hasNetworkPose;
+        [SerializeField, Range(0, .15f), Tooltip("Small camera recoil per metre/second of collision impulse divided by ship mass.")] private float impactRecoil=.035f;
+        private Vector3 recoilOffset, recoilVelocity;
 
         public void Initialize(ShipController controller, Camera camera)
         {
@@ -32,6 +37,7 @@ namespace TradeWinds
             OfflineActor = new GameObject("Physical local sailor").AddComponent<ShipActor>();
             OfflineActor.Initialize(ship, 0, new Vector3(1.5f, 2.2f, -4.6f));
             previousHeading = (float)ship.State.Heading;
+            if(ship.PhysicsBody!=null) ship.PhysicsBody.Impact+=OnShipImpact;
             LockCursor(true);
         }
 
@@ -39,7 +45,7 @@ namespace TradeWinds
         {
             var keyboard = Keyboard.current; var mouse = Mouse.current;
             if (keyboard == null || ship == null) return;
-            float heading = (float)ship.State.Heading;
+            float heading = ship.transform.eulerAngles.y;
             if (Aboard) yaw += Mathf.DeltaAngle(previousHeading, heading);
             previousHeading = heading;
             if (keyboard.escapeKey.wasPressedThisFrame) SetPaused(!Paused);
@@ -74,14 +80,18 @@ namespace TradeWinds
 
         public void ApplyNetworkPose(CrewPose pose)
         {
+            bool changedSpace = !hasNetworkPose || networkAboard != pose.aboard;
             networkAtHelm = pose.atHelm; networkClimbing = pose.climbing; networkAboard = pose.aboard;
             Transform parent = pose.aboard ? ship.transform : null;
             if (transform.parent != parent) transform.SetParent(parent, true);
-            if (pose.aboard) transform.localPosition = pose.position; else transform.position = pose.position;
+            networkFrom = changedSpace ? pose.position : (pose.aboard ? transform.localPosition : transform.position);
+            networkTarget = pose.position; networkReceived = Time.unscaledTime; hasNetworkPose = true;
+            if (changedSpace) { if(pose.aboard) transform.localPosition=pose.position; else transform.position=pose.position; }
         }
 
         public void SetNetworkMode(bool enabled)
         {
+            hasNetworkPose = false;
             if (OfflineActor != null) OfflineActor.gameObject.SetActive(!enabled);
             if (!enabled) { transform.SetParent(null, true); networkAtHelm = networkClimbing = false; }
         }
@@ -96,7 +106,10 @@ namespace TradeWinds
         private void LateUpdate()
         {
             if (ship == null || OfflineActor == null) return;
-            Vector3 feet = WorldPosition;
+            if (Session != null && Session.Active && hasNetworkPose)
+            { var p=Vector3.Lerp(networkFrom,networkTarget,Mathf.Clamp01((Time.unscaledTime-networkReceived)/.05f));
+                if(networkAboard) transform.localPosition=p; else transform.position=p; }
+            Vector3 feet = Session != null && Session.Active ? (Session.LocalActor != null ? Session.LocalActor.RenderPosition : transform.position) : OfflineActor.RenderPosition;
             if (Overview)
             {
                 view.transform.position = ship.transform.position + Quaternion.Euler(0, yaw, 0) * new Vector3(17, 12, -24);
@@ -116,8 +129,15 @@ namespace TradeWinds
                 float roll = Aboard ? Mathf.DeltaAngle(0, ship.transform.eulerAngles.z) * CameraRock : 0;
                 view.transform.rotation = Quaternion.Euler(pitch, yaw, 0) * Quaternion.AngleAxis(roll, Vector3.forward);
             }
-            Shader.SetGlobalFloat("_VoyageTime", (float)ship.State.Clock); Shader.SetGlobalFloat("_SeaStrength", ship.SeaStrength);
+            Shader.SetGlobalFloat("_VoyageTime", ship.WaterRenderClock); Shader.SetGlobalFloat("_SeaStrength", ship.SeaStrength);
+            float dt=Mathf.Min(Time.unscaledDeltaTime,.033f);
+            recoilVelocity-= (recoilOffset*324+recoilVelocity*36)*dt;
+            recoilOffset=Vector3.ClampMagnitude(recoilOffset+recoilVelocity*dt,.08f);
+            view.transform.position+=recoilOffset;
         }
+
+        private void OnShipImpact(Vector3 deltaVelocity)
+        { if(Aboard) recoilVelocity-=Vector3.ClampMagnitude(deltaVelocity*impactRecoil,.35f); }
 
         public void SetPaused(bool paused)
         {
@@ -136,8 +156,9 @@ namespace TradeWinds
         }
         private void OnApplicationFocus(bool focus) { if (!focus && ship != null) SetPaused(true); }
         private void OnDisable() { LockCursor(false); }
-        private void OnDestroy() { if (OfflineActor != null) Destroy(OfflineActor.gameObject); }
+        private void OnDestroy() { if(ship!=null && ship.PhysicsBody!=null) ship.PhysicsBody.Impact-=OnShipImpact; if (OfflineActor != null) Destroy(OfflineActor.gameObject); }
         private static void LockCursor(bool locked)
         { Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None; Cursor.visible = !locked; }
     }
 }
+

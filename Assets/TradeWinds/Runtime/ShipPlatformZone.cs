@@ -18,7 +18,7 @@ namespace TradeWinds
         private void Enter(Collider other)
         {
             var actor = other.GetComponent<ShipActor>();
-            if (ship != null && actor != null && !actor.Climbing && actor.Platform == null) actor.Attach(ship);
+            if (ship != null && actor != null && !actor.Climbing && actor.Platform == null) actor.TryAttachToDeck(ship);
         }
         private void OnTriggerExit(Collider other)
         {
@@ -27,3 +27,4 @@ namespace TradeWinds
         }
     }
 }
+

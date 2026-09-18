@@ -149,7 +149,7 @@ namespace TradeWinds
             var holdCargo = Array.Find(FindObjectsByType<PickableItem>(FindObjectsSortMode.None), item => item.Id == 2);
             var ladder = FindFirstObjectByType<LadderInteraction>();
             yield return Keys(1.2f);
-            Check(actor.Platform == ship && actor.transform.parent == ship.transform, "Player attaches to the ship");
+            Check(actor.Platform == ship && actor.transform.parent == null, "Player acquires deck support without Transform parenting");
             Vector3 worldBefore = actor.transform.position; actor.Detach();
             Check(actor.transform.parent == null && Vector3.Distance(actor.transform.position, worldBefore) < 0.001f, "Detach preserves world position");
             actor.Attach(ship);
@@ -191,7 +191,7 @@ namespace TradeWinds
             Check(actor.transform.position.z < -8.5f && actor.transform.position.y > 0.35f, "Player lands on the pier");
             player.LookAtPoint(ladder.transform.TransformPoint(new Vector3(0, 1.3f, 0))); yield return Keys(0.2f);
             yield return Keys(0.15f, Key.E); yield return ClimbKey(Key.W); yield return Keys(0.2f);
-            Check(!actor.Climbing && actor.Controller.enabled && actor.Platform == ship && actor.transform.parent == ship.transform, "Ladder top restores ship parenting");
+            Check(!actor.Climbing && actor.Controller.enabled && actor.Platform == ship && actor.transform.parent == null, "Ladder top restores relative deck support");
             yield return Keys(0.15f, Key.Tab); yield return Keys(0.3f); yield return Capture("systems-character-and-pier.png");
             Finish((systemFailures == 0 ? "PASS" : "FAIL") + ": systems failures=" + systemFailures + "\n" + systemResults);
         }
@@ -225,3 +225,4 @@ namespace TradeWinds
     }
 }
 #endif
+

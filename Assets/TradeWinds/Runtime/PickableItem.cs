@@ -32,6 +32,11 @@ namespace TradeWinds
         private Vector3 initialLocal;
         private Collider ownCollider;
         private float secureAfter;
+        private Collider[] shipColliders;
+        private Vector3 replicaFromPosition, replicaTargetPosition;
+        private Quaternion replicaFromRotation, replicaTargetRotation;
+        private float replicaReceived;
+        private bool hasReplicaTarget;
 
         private void Awake()
         {
@@ -44,6 +49,7 @@ namespace TradeWinds
             Id = id; homeShip = ship; itemName = title; weight = Mathf.Max(0.1f, mass);
             Body = GetComponent<Rigidbody>(); ownCollider = GetComponent<Collider>();
             Body.mass = weight; Body.interpolation = RigidbodyInterpolation.Interpolate;
+            shipColliders = ship.GetComponentsInChildren<Collider>();
             Body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             initialLocal = ship.transform.InverseTransformPoint(transform.position);
             ResetItem();
@@ -56,6 +62,8 @@ namespace TradeWinds
             Carrier = interaction; State = CargoState.Carried;
             transform.SetParent(null, true);
             Body.isKinematic = false; Body.useGravity = false;
+            Body.interpolation = RigidbodyInterpolation.Interpolate;
+            IgnoreShipCollision(false);
             Body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero;
             Body.constraints = RigidbodyConstraints.FreezeRotation;
@@ -89,17 +97,41 @@ namespace TradeWinds
             Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero;
             Body.collisionDetectionMode = CollisionDetectionMode.Discrete;
             Body.isKinematic = true; Body.useGravity = false;
+            Body.interpolation = RigidbodyInterpolation.None;
             transform.SetParent(ship.transform, true); State = CargoState.Secured;
+            // A secured kinematic crate must not exert infinite-mass contact forces on its own dynamic ship.
+            IgnoreShipCollision(true);
             return true;
+        }
+
+        private void IgnoreShipCollision(bool ignore)
+        {
+            if(shipColliders==null || homeShip==null) return;
+            var shipBody=homeShip.GetComponent<Rigidbody>();
+            foreach(var collider in shipColliders)
+                if(collider!=null && collider!=ownCollider && !collider.isTrigger && collider.attachedRigidbody==shipBody)
+                    Physics.IgnoreCollision(ownCollider,collider,ignore);
         }
 
         private void FixedUpdate()
         {
-            if (Body == null || IsReplica) return;
+            if (Body == null) return;
+            if (IsReplica)
+            {
+                if(hasReplicaTarget && State!=CargoState.Secured)
+                {
+                    float t=Mathf.Clamp01((Time.unscaledTime-replicaReceived)/.05f);
+                    Body.MovePosition(Vector3.Lerp(replicaFromPosition,replicaTargetPosition,t));
+                    Body.MoveRotation(Quaternion.Slerp(replicaFromRotation,replicaTargetRotation,t));
+                }
+                return;
+            }
             if (Carrier != null)
             {
-                Vector3 velocity = (Carrier.HoldPoint.position - Body.position) * 16;
-                Body.linearVelocity = Vector3.ClampMagnitude(velocity, 10);
+                Vector3 inherited = Carrier.Actor.Velocity;
+                if (Carrier.Actor.Platform != null) inherited += Carrier.Actor.Platform.GetPointVelocity(Body.position);
+                Vector3 desired = inherited + Vector3.ClampMagnitude((Carrier.HoldPoint.position - Body.position) * 12, 8);
+                Body.AddForce(Vector3.ClampMagnitude((desired - Body.linearVelocity) * 12, 60), ForceMode.Acceleration);
                 Body.MoveRotation(Quaternion.Slerp(Body.rotation, Carrier.HoldPoint.rotation, 0.25f));
             }
             else if (homeShip != null && transform.position.y < -15) ResetItem();
@@ -108,6 +140,7 @@ namespace TradeWinds
         public void SetReplica(bool replica)
         {
             IsReplica = replica; Carrier = null;
+            hasReplicaTarget = false;
             Body.collisionDetectionMode = replica || State == CargoState.Secured ? CollisionDetectionMode.Discrete : CollisionDetectionMode.ContinuousDynamic;
             Body.isKinematic = replica || State == CargoState.Secured;
             Body.useGravity = !Body.isKinematic;
@@ -124,11 +157,20 @@ namespace TradeWinds
         public void Apply(CargoPose pose)
         {
             if (!IsReplica) return;
+            bool changed = State != pose.state;
             State = pose.state;
             Transform parent = State == CargoState.Secured ? homeShip.transform : null;
             if (transform.parent != parent) transform.SetParent(parent, true);
-            if (parent != null) { transform.localPosition = pose.position; transform.localRotation = pose.rotation; }
-            else { Body.position = pose.position; Body.rotation = pose.rotation; }
+            Body.interpolation=parent!=null ? RigidbodyInterpolation.None : RigidbodyInterpolation.Interpolate;
+            if (parent != null) { transform.localPosition = pose.position; transform.localRotation = pose.rotation; hasReplicaTarget=false; }
+            else
+            {
+                if(!hasReplicaTarget || changed || (Body.position-pose.position).sqrMagnitude>100)
+                { Body.position=pose.position; Body.rotation=pose.rotation; }
+                replicaFromPosition=Body.position; replicaFromRotation=Body.rotation;
+                replicaTargetPosition=pose.position; replicaTargetRotation=pose.rotation;
+                replicaReceived=Time.unscaledTime; hasReplicaTarget=true;
+            }
         }
 
         public void ResetItem()
@@ -138,11 +180,14 @@ namespace TradeWinds
             Carrier = null; State = CargoState.Loose;
             transform.SetParent(null, true);
             Body.isKinematic = false; Body.useGravity = true; Body.constraints = RigidbodyConstraints.None;
+            Body.interpolation = RigidbodyInterpolation.Interpolate;
             Body.collisionDetectionMode = IsReplica ? CollisionDetectionMode.Discrete : CollisionDetectionMode.ContinuousDynamic;
             Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero;
             Body.position = homeShip.transform.TransformPoint(initialLocal); Body.rotation = homeShip.transform.rotation;
+            IgnoreShipCollision(false);
             secureAfter = Time.time + 0.2f;
             if (IsReplica) Body.isKinematic = true;
         }
     }
 }
+

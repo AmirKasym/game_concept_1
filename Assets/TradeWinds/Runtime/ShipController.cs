@@ -6,133 +6,82 @@ namespace TradeWinds
     public sealed class ShipController : MonoBehaviour
     {
         public ShipSimulation State { get; private set; }
-        public float SeaStrength { get; set; } = 0.6f;
+        [SerializeField, Range(0, 2), Tooltip("Amplitude multiplier shared by visual water and buoyancy sampling.")] private float seaStrength=.6f;
+        public float SeaStrength { get => seaStrength; set => seaStrength=Mathf.Clamp(value,0,2); }
         public float Steering { get; set; }
         public float SailChange { get; set; }
         public bool Paused { get; set; }
         public ShipActor Helmsman { get; private set; }
-        private Vector3 linearVelocity, angularVelocity;
-        private bool hasPreviousPose;
+        public BuoyantShipBody PhysicsBody { get; private set; }
+        public bool IsReplica { get; private set; }
+        private float receivedPhysicsAt;
+        public float WaterRenderClock => Mathf.Max(0, (float)State.Clock + (IsReplica
+            ? Mathf.Clamp(Time.unscaledTime-receivedPhysicsAt,0,.1f)
+            : Paused ? 0 : -Time.fixedDeltaTime+Mathf.Clamp(Time.time-Time.fixedTime,0,Time.fixedDeltaTime)));
+        public void ReceivePhysicsPose(ShipPhysicsPose pose) { PhysicsBody.Receive(pose); receivedPhysicsAt=Time.unscaledTime; }
         public string Notice { get; private set; } = "Подойдите к штурвалу и нажмите E.";
         [SerializeField] private Transform wheel;
         [SerializeField] private Transform sail;
         [SerializeField] private Vector3[] islands;
+        // Preserved for existing scene serialization. Physical hull contacts now replace overlap rollback.
         [SerializeField] private Transform[] detailedIslandRoots = System.Array.Empty<Transform>();
-        private readonly Collider[] shoreHits = new Collider[64];
-
-        private void Awake() { State = new ShipSimulation(); }
-
+        private void Awake() { State = new ShipSimulation(); PhysicsBody=GetComponent<BuoyantShipBody>(); }
         public void Initialize(Transform wheelVisual, Transform sailVisual, Vector3[] obstacles)
+        { State=new ShipSimulation(); wheel=wheelVisual; sail=sailVisual; islands=obstacles; }
+        public void InitializePhysics()
         {
-            State = new ShipSimulation();
-            wheel = wheelVisual;
-            sail = sailVisual;
-            islands = obstacles;
+            PhysicsBody=GetComponent<BuoyantShipBody>();
+            if (PhysicsBody==null) PhysicsBody=gameObject.AddComponent<BuoyantShipBody>();
+            PhysicsBody.Configure();
+            PhysicsBody.Impact+=OnImpact;
         }
-
+        private void OnImpact(Vector3 deltaVelocity)
+        { if (deltaVelocity.magnitude>.15f) Notice="Касание корпуса. Уменьшите парус и отойдите от препятствия."; }
+        public void SetReplica(bool value) { IsReplica=value; if(PhysicsBody!=null) PhysicsBody.SetReplica(value); }
         private void FixedUpdate()
         {
-            if (State == null) return;
-            if (Paused) { UpdatePresentation(); Physics.SyncTransforms(); return; }
-            double x = State.X, z = State.Z;
-            State.Step(Time.fixedDeltaTime, Steering, SailChange);
-            if (TouchesDetailedShore())
+            if (State==null || PhysicsBody==null) return;
+            if (!IsReplica && !Paused)
             {
-                State.StopAtObstacle(x, z);
-                Notice = "Берег или причал впереди. Разверните корабль для подхода.";
+                State.Step(Time.fixedDeltaTime,Steering,SailChange);
+                var state=State.Capture(); var body=PhysicsBody.Body;
+                state.x=body.position.x; state.z=body.position.z; state.heading=body.rotation.eulerAngles.y;
+                state.speed=Vector3.Dot(body.linearVelocity,body.rotation*Vector3.forward);
+                State.Restore(state);
+                if (new Vector2((float)state.x,(float)state.z).magnitude>695 && !State.Anchored)
+                { State.ToggleAnchor(); Notice="Край тестового моря. Развернитесь к островам."; }
             }
-            foreach (Vector3 island in islands)
-            {
-                var delta = new Vector2((float)State.X - island.x, (float)State.Z - island.z);
-                if (delta.sqrMagnitude < (island.y + 11) * (island.y + 11))
-                {
-                    State.StopAtObstacle(x, z);
-                    Notice = "Мель! Пробный выход остановлен. R — вернуться в исходную точку.";
-                    break;
-                }
-            }
-            if (State.X * State.X + State.Z * State.Z > 695 * 695)
-                Notice = "Край тестового моря. Развернитесь в сторону маяка.";
+            PhysicsBody.Simulate(Time.fixedDeltaTime,(float)State.Clock,SeaStrength,
+                (float)(State.Sail*State.WindEfficiency),(float)State.Rudder,State.Anchored,Paused);
             UpdatePresentation();
-            Physics.SyncTransforms();
         }
-
-        private bool TouchesDetailedShore()
+        public void InstallLegacyBoundaries(Transform world)
         {
-            if (detailedIslandRoots == null || detailedIslandRoots.Length == 0) return false;
-            // Check the hull at the proposed pose. Ignore crew, cargo and the ship itself.
-            var center = new Vector3((float)State.X, 1, (float)State.Z);
-            int count = Physics.OverlapBoxNonAlloc(center, new Vector3(2.9f, .85f, 7.2f), shoreHits,
-                Quaternion.Euler(0, (float)State.Heading, 0), Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < count; i++)
-                foreach (var root in detailedIslandRoots)
-                    if (root != null && shoreHits[i].transform.IsChildOf(root)) return true;
-            // A saturated query cannot establish that the next pose is clear.
-            return count == shoreHits.Length;
+            if(islands==null) return;
+            foreach(var island in islands)
+            {
+                var boundary=new GameObject("Legacy island physical boundary").AddComponent<CapsuleCollider>();
+                boundary.transform.SetParent(world,false); boundary.transform.position=new Vector3(island.x,0,island.z);
+                boundary.radius=island.y; boundary.height=island.y*2+30; boundary.direction=1;
+            }
         }
-
         public bool TryTakeHelm(ShipActor actor)
         {
-            if (Helmsman != null || actor.Interaction.HeldItem != null || !actor.NearHelm) return false;
-            Helmsman = actor; actor.Respawn(DeckPlayer.HelmPosition);
-            return true;
+            if(Helmsman!=null || actor.Interaction.HeldItem!=null || !actor.NearHelm) return false;
+            Helmsman=actor; actor.Respawn(DeckPlayer.HelmPosition); return true;
         }
-
-        public void ReleaseHelm(ShipActor actor)
-        {
-            if (Helmsman != actor) return;
-            Helmsman = null; Steering = SailChange = 0;
-        }
-
-        public Vector3 GetPointVelocity(Vector3 point)
-        { return linearVelocity + Vector3.Cross(angularVelocity, point - transform.position); }
-
-        public void ToggleAnchor()
-        {
-            State.ToggleAnchor();
-            Notice = State.Anchored ? "Якорь опущен. Корабль замедляется." : "Якорь поднят. W — поставить парус.";
-        }
-
+        public void ReleaseHelm(ShipActor actor) { if(Helmsman!=actor) return; Helmsman=null; Steering=SailChange=0; }
+        public Vector3 GetPointVelocity(Vector3 point) => PhysicsBody!=null ? PhysicsBody.PointVelocity(point) : Vector3.zero;
+        public Vector3 LocalToPhysics(Vector3 local) => PhysicsBody!=null ? PhysicsBody.LocalToPhysics(local) : transform.TransformPoint(local);
+        public Vector3 PhysicsToLocal(Vector3 world) => PhysicsBody!=null ? PhysicsBody.PhysicsToLocal(world) : transform.InverseTransformPoint(world);
+        public void ToggleAnchor() { State.ToggleAnchor(); Notice=State.Anchored ? "Якорь опущен. Корабль замедляется." : "Якорь поднят. W — поставить парус."; }
         public void ResetVoyage()
-        {
-            State.Reset();
-            Helmsman = null; hasPreviousPose = false;
-            Steering = SailChange = 0;
-            Notice = "Пробный выход начат заново.";
-        }
-
+        { State.Reset(); Helmsman=null; Steering=SailChange=0; if(PhysicsBody!=null) PhysicsBody.ResetPose(); Notice="Пробный выход начат заново."; }
         public void UpdatePresentation()
         {
-            float t = (float)State.Clock;
-            float x = (float)State.X, z = (float)State.Z;
-            float heading = (float)State.Heading;
-            var forward = Quaternion.Euler(0, heading, 0) * Vector3.forward;
-            var right = Quaternion.Euler(0, heading, 0) * Vector3.right;
-            float bow = Height(x + forward.x * 5, z + forward.z * 5, t);
-            float stern = Height(x - forward.x * 5, z - forward.z * 5, t);
-            float port = Height(x - right.x * 2, z - right.z * 2, t);
-            float starboard = Height(x + right.x * 2, z + right.z * 2, t);
-            float pitch = -Mathf.Atan2(bow - stern, 10) * Mathf.Rad2Deg;
-            float roll = Mathf.Atan2(starboard - port, 4) * Mathf.Rad2Deg;
-            Vector3 position = new Vector3(x, Height(x, z, t), z);
-            Quaternion rotation = Quaternion.Euler(0, heading, 0) * Quaternion.Euler(pitch, 0, roll);
-            if (hasPreviousPose)
-            {
-                linearVelocity = (position - transform.position) / Time.fixedDeltaTime;
-                Quaternion delta = rotation * Quaternion.Inverse(transform.rotation);
-                delta.ToAngleAxis(out float angle, out Vector3 axis);
-                if (angle > 180) angle -= 360;
-                angularVelocity = Mathf.Abs(angle) < 0.0001f ? Vector3.zero : axis * angle * Mathf.Deg2Rad / Time.fixedDeltaTime;
-            }
-            else { linearVelocity = angularVelocity = Vector3.zero; hasPreviousPose = true; }
-            transform.SetPositionAndRotation(position, rotation);
-            wheel.localRotation = Quaternion.Euler(0, 0, (float)-State.Rudder * 85);
-            sail.localScale = new Vector3(1, Mathf.Lerp(0.12f, 1, (float)State.Sail), 1);
+            if(wheel!=null) wheel.localRotation=Quaternion.Euler(0,0,(float)-State.Rudder*85);
+            if(sail!=null) sail.localScale=new Vector3(1,Mathf.Lerp(.12f,1,(float)State.Sail),1);
         }
-
-        private float Height(float x, float z, float t)
-        {
-            return (float)ShipSimulation.WaveHeight(x, z, t, SeaStrength);
-        }
+        private void OnDestroy() { if(PhysicsBody!=null) PhysicsBody.Impact-=OnImpact; }
     }
 }

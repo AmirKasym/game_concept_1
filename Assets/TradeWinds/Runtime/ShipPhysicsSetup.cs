@@ -7,8 +7,12 @@ namespace TradeWinds
     {
         public static PickableItem[] Install(ShipController ship, Transform world, Transform existingCrate, Material material)
         {
-            var rigidbody = ship.gameObject.AddComponent<Rigidbody>();
-            rigidbody.isKinematic = true; rigidbody.useGravity = false; rigidbody.mass = 10000;
+            var rigidbody = ship.GetComponent<Rigidbody>();
+            if (rigidbody == null) rigidbody = ship.gameObject.AddComponent<Rigidbody>();
+            rigidbody.isKinematic = false; rigidbody.useGravity = true; rigidbody.mass = 10000;
+            var hull = new GameObject("Physical hull", typeof(BoxCollider));
+            hull.transform.SetParent(ship.transform, false);
+            var hullCollider = hull.GetComponent<BoxCollider>(); hullCollider.center = new Vector3(0, .65f, -.25f); hullCollider.size = new Vector3(5.7f, 2.4f, 14.1f);
             foreach (Transform child in ship.GetComponentsInChildren<Transform>())
             {
                 if (child.name == "Stern rail") { child.gameObject.SetActive(false); continue; }
@@ -45,6 +49,8 @@ namespace TradeWinds
             var second = secondObject.AddComponent<PickableItem>(); second.Configure(1, ship, "Инструменты", 25); items.Add(second);
             var thirdObject = MakeBox("Груз в трюме", ship.transform, new Vector3(0, 2.6f, 5.4f), Vector3.one * 0.8f, material, new Color(0.55f, 0.45f, 0.22f), true);
             var third = thirdObject.AddComponent<PickableItem>(); third.Configure(2, ship, "Торговый груз", 18); items.Add(third);
+            ship.InitializePhysics();
+            ship.InstallLegacyBoundaries(world);
             Physics.SyncTransforms();
             return items.ToArray();
         }
@@ -60,3 +66,4 @@ namespace TradeWinds
         }
     }
 }
+

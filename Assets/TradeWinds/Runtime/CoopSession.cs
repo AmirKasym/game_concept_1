@@ -27,6 +27,7 @@ namespace TradeWinds
     public sealed class VoyageSnapshot
     {
         public ShipSnapshot ship;
+        public ShipPhysicsPose physics;
         public CrewPose[] crew;
         public Vector3 cargo;
         public long carrier = -1;
@@ -70,6 +71,7 @@ namespace TradeWinds
         public string Status { get; private set; } = "E — предмет / лестница / штурвал. ЛКМ — бросить. Зелёная зона — трюм.";
         public VoyageSnapshot LastSnapshot { get; private set; }
         public ulong LocalClientId { get { return network.LocalClientId; } }
+        public ShipActor LocalActor => IsHost && sailors.TryGetValue(LocalClientId, out var sailor) ? sailor.actor : null;
 
         public void Initialize(ShipController controller, DeckPlayer deckPlayer, PickableItem[] cargo, Material material)
         {
@@ -86,7 +88,7 @@ namespace TradeWinds
             network.NetworkConfig.NetworkTransport = transport;
             network.NetworkConfig.EnableSceneManagement = false;
             network.NetworkConfig.ConnectionApproval = true;
-            network.NetworkConfig.ProtocolVersion = 3;
+            network.NetworkConfig.ProtocolVersion = 4;
             network.NetworkConfig.TickRate = 20;
             network.ConnectionApprovalCallback = Approve;
             network.OnClientConnectedCallback += Connected;
@@ -117,7 +119,7 @@ namespace TradeWinds
             connectionDeadline = Time.unscaledTime + 12;
             if (!network.StartClient()) { connecting = false; ReturnOffline(); Status = "Не удалось подключиться."; return; }
             RegisterMessages();
-            ship.Paused = true;
+            ship.SetReplica(true); ship.Paused = true;
             Status = "Подключение к " + address + "…";
         }
 
@@ -125,7 +127,7 @@ namespace TradeWinds
         {
             ClearSailors(); pending = new CrewInput(); carrier = -1; LastSnapshot = null;
             player.SetNetworkMode(true);
-            ship.ResetVoyage();
+            ship.SetReplica(false); ship.ResetVoyage();
             ship.Paused = false;
             cargoPosition = new Vector3(1.7f, 2.6f, -1.8f);
             ResetCargo();
@@ -189,7 +191,7 @@ namespace TradeWinds
             foreach (var avatar in avatars.Values) if (avatar != null) Destroy(avatar.gameObject);
             avatars.Clear(); ClearSailors(); carrier = -1; pending = new CrewInput();
             foreach (var item in items) item.SetReplica(false);
-            player.SetNetworkMode(false);
+            ship.SetReplica(false); player.SetNetworkMode(false);
             player.ResetPlayerAndShip();
             player.SetPaused(true);
         }
@@ -221,12 +223,12 @@ namespace TradeWinds
                 {
                     ShipActor actor = pair.Value.actor;
                     bool aboard = actor.Platform != null;
-                    poses[index++] = new CrewPose { id = pair.Key, position = aboard ? ship.transform.InverseTransformPoint(actor.transform.position) : actor.transform.position,
+                    poses[index++] = new CrewPose { id = pair.Key, position = aboard ? ship.PhysicsToLocal(actor.transform.position) : actor.transform.position,
                         yaw = pair.Value.input.yaw, atHelm = actor.AtHelm, aboard = aboard, climbing = actor.Climbing, grounded = actor.Grounded };
                 }
                 var cargoPoses = new CargoPose[items.Length];
                 for (int i = 0; i < items.Length; i++) cargoPoses[i] = items[i].Capture();
-                var snapshot = new VoyageSnapshot { ship = ship.State.Capture(), crew = poses, cargo = items[0].transform.position,
+                var snapshot = new VoyageSnapshot { ship = ship.State.Capture(), physics = ship.PhysicsBody.Capture(), crew = poses, cargo = items[0].transform.position,
                     carrier = cargoPoses[0].carrier, items = cargoPoses };
                 Present(snapshot);
                 foreach (ulong id in network.ConnectedClientsIds)
@@ -281,7 +283,7 @@ namespace TradeWinds
                 reader.ReadValueSafe(out string json);
                 var snapshot = JsonUtility.FromJson<VoyageSnapshot>(json);
                 if (snapshot == null || snapshot.crew == null || snapshot.crew.Length > 4 || snapshot.items == null || snapshot.items.Length != items.Length) return;
-                ship.State.Restore(snapshot.ship);
+                ship.ReceivePhysicsPose(snapshot.physics); ship.State.Restore(snapshot.ship);
                 Present(snapshot);
             }
             catch (Exception) { Debug.LogWarning("Rejected malformed voyage snapshot."); }
@@ -376,3 +378,4 @@ namespace TradeWinds
         }
     }
 }
+
