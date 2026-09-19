@@ -1,0 +1,3 @@
+PASS Starting water clear of island collision.
+PASS Lighthouse island: shore geometry present; seaward approach clear.
+PASS Market harbor: shore geometry present; seaward approach clear.

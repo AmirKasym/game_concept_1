@@ -83,7 +83,7 @@ namespace TradeWinds.Editor
             Install();
             EditorSceneManager.OpenScene(ScenePath); Validate();
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
-                scenes = new[] { ScenePath }, locationPathName = "Builds/IntegratedVoyage/FirstVoyage.exe",
+                scenes = new[] { ScenePath }, locationPathName = "Builds/Windows/FirstVoyage.exe",
                 target = BuildTarget.StandaloneWindows64, options = BuildOptions.Development });
             if (report.summary.result != BuildResult.Succeeded) throw new Exception("Integrated voyage build failed");
             File.AppendAllText("TestResults/FirstVoyageIntegration/editor.txt", "PASS Windows x86_64 build.\n");

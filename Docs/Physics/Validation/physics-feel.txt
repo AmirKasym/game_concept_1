@@ -1,0 +1,14 @@
+failures=0
+PASS Dynamic hull, interpolation and CCD configured 
+PASS Calm-water equilibrium (0.00, 0.01, 0.00) velocity=(0.00, 0.00, 0.00)
+PASS Standing sailor stays grounded 
+PASS Idle deck grip in waves (1.50, 2.16, -4.60)
+PASS Recover from 30 degree roll (358.84, 0.03, 359.84)
+PASS Lateral resistance exceeds forward resistance (0.24, 0.01, 2.42)
+PASS Jump inherits ship momentum (0.09, 6.62, 3.39)
+PASS Jump lands back on moving deck 
+PASS Sudden stop transfers inertia to sailor 
+PASS CCD hull contact absorbs forward motion (250.00, 0.02, -92.87) velocity=(0.00, -0.01, -0.30)
+PASS Mass-normalized impact recorded (0.00, 0.00, -8.00)
+PASS Pause holds dynamic body steady 
+PASS Resume restores force-driven body 

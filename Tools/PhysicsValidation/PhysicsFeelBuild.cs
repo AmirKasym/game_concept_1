@@ -25,7 +25,7 @@ public static class PhysicsFeelBuild
         }
         EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene);
         var result=BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes=new[]{scene.path},
-            locationPathName="Builds/PhysicsFeel/FirstVoyage.exe",target=BuildTarget.StandaloneWindows64,options=BuildOptions.Development });
+            locationPathName="Builds/Windows/FirstVoyage.exe",target=BuildTarget.StandaloneWindows64,options=BuildOptions.Development });
         if(result.summary.result!=BuildResult.Succeeded) throw new Exception("Physics build failed");
     }
 }
